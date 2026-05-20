@@ -1,0 +1,103 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String        @id @default(cuid())
+  name         String
+  email        String        @unique
+  password     String
+  role         String        @default("SALES") // ADMIN | SALES | PARTNER
+  createdAt    DateTime      @default(now())
+  applications Application[] @relation("AssignedTo")
+}
+
+model Sector {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  slug      String     @unique
+  isActive  Boolean    @default(true)
+  questions Question[]
+  services  Service[]
+  createdAt DateTime   @default(now())
+}
+
+model Question {
+  id        String   @id @default(cuid())
+  sectorId  String
+  sector    Sector   @relation(fields: [sectorId], references: [id])
+  text      String
+  type      String   // single_choice | multiple_choice | text | yes_no
+  options   String?  // JSON string array
+  order     Int
+  appType   String?  // NEW_BUSINESS | RENOVATION | null (both)
+  dependsOn String?  // JSON: { questionId, answer }
+  createdAt DateTime @default(now())
+  answers   Answer[]
+}
+
+model Service {
+  id           String        @id @default(cuid())
+  sectorId     String
+  sector       Sector        @relation(fields: [sectorId], references: [id])
+  name         String
+  description  String?
+  priceMin     Float?
+  priceMax     Float?
+  rules        String        // JSON rules
+  category     String?
+  partnerType  String?
+  createdAt    DateTime      @default(now())
+  packageItems PackageItem[]
+}
+
+model Application {
+  id           String   @id @default(cuid())
+  type         String   // NEW_BUSINESS | RENOVATION
+  sectorSlug   String   @default("kuyumcu")
+  status       String   @default("NEW") // NEW | IN_PROGRESS | CONTACTED | COMPLETED | CANCELLED
+  firstName    String
+  lastName     String
+  phone        String
+  email        String
+  city         String?
+  assignedToId String?
+  assignedTo   User?    @relation("AssignedTo", fields: [assignedToId], references: [id])
+  answers      Answer[]
+  package      Package?
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Answer {
+  id            String      @id @default(cuid())
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id])
+  questionId    String
+  question      Question    @relation(fields: [questionId], references: [id])
+  value         String      // JSON value
+}
+
+model Package {
+  id            String        @id @default(cuid())
+  applicationId String        @unique
+  application   Application   @relation(fields: [applicationId], references: [id])
+  totalMin      Float?
+  totalMax      Float?
+  items         PackageItem[]
+  createdAt     DateTime      @default(now())
+}
+
+model PackageItem {
+  id        String  @id @default(cuid())
+  packageId String
+  package   Package @relation(fields: [packageId], references: [id])
+  serviceId String
+  service   Service @relation(fields: [serviceId], references: [id])
+}
