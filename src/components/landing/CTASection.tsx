@@ -28,7 +28,7 @@ export function CTASection() {
               <Button
                 size="lg"
                 variant="outline"
-                className="text-sm font-medium px-6 h-10 rounded-lg border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10"
+                className="text-sm font-medium px-6 h-10 rounded-lg bg-white/15 border-white/40 text-white hover:bg-white/25"
               >
                 <Phone className="mr-2 h-4 w-4" />
                 Bizi Arayın
