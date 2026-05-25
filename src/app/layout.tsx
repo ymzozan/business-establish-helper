@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Cormorant_Garamond } from "next/font/google";
+import { Inter, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -9,17 +9,18 @@ const inter = Inter({
   display: "swap",
 });
 
-const cormorant = Cormorant_Garamond({
+const playfair = Playfair_Display({
   subsets: ["latin"],
-  weight: ["400", "500"],
+  weight: ["400", "500", "600", "700"],
   variable: "--font-heading",
   display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "Kuyumcu Otomasyon - B2B Yönlendirme Platformu",
+  title: "SORS | Kuyumculuk Dünyasına Giriş Biletiniz",
   description:
-    "Kuyumcu sektörü için akıllı ihtiyaç analizi ve hizmet paketleme platformu",
+    "Toptan tedarik, sıfırdan kurulum ve dijital dönüşüm. Kuyumcu sektörünün lider B2B çözüm ortağı.",
+  keywords: "kuyumcu, toptan altın, kuyumcu kurulum, kuyumcu yazılım, PusulaNet, altın hesaplama",
 };
 
 export default function RootLayout({
@@ -28,7 +29,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="tr" className={`${inter.variable} ${cormorant.variable} h-full scroll-smooth`}>
+    <html lang="tr" className={`${inter.variable} ${playfair.variable} h-full scroll-smooth`}>
       <body className="min-h-full flex flex-col font-sans antialiased">
         {children}
         <Toaster />
