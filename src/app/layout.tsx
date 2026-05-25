@@ -17,10 +17,10 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: "SORS | Kuyumculuk Dünyasına Giriş Biletiniz",
+  title: "SORS Gold | Toptan Altın Takı Tedariği & Anahtar Teslim Kuyumcu Kurulumu",
   description:
-    "Toptan tedarik, sıfırdan kurulum ve dijital dönüşüm. Kuyumcu sektörünün lider B2B çözüm ortağı.",
-  keywords: "kuyumcu, toptan altın, kuyumcu kurulum, kuyumcu yazılım, PusulaNet, altın hesaplama",
+    "Atölyeden doğrudan 8K, 14K, 22K toptan altın takı tedariği. Sıfırdan kuyumcu kurulumu ve modern mağaza dönüşüm çözümleri. SORS ile kuyumculuğun dijital çağına adım atın.",
+  keywords: "toptan altın takı, kuyumcu kurulum, 14 ayar toptan, kuyumcu açmak, altın tedarik, kuyumcu yazılım, SORS, has altın hesaplama",
 };
 
 export default function RootLayout({
