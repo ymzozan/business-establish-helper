@@ -73,7 +73,7 @@ export default async function ApplicationsPage() {
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline">
-                      {app.type === "NEW_BUSINESS" ? "Yeni" : "Yenileme"}
+                      {({ NEW_BUSINESS: "Kurulum", RENOVATION: "Yenileme", WHOLESALE: "Toptan altın", REPAIR: "Tamirat" } as Record<string, string>)[app.type] || app.type}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-sm">{app.email}</TableCell>

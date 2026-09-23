@@ -51,9 +51,7 @@ export default async function ApplicationDetailPage({
             {application.firstName} {application.lastName}
           </h1>
           <p className="text-gray-500 text-sm">
-            {application.type === "NEW_BUSINESS"
-              ? "Yeni İşletme"
-              : "Yenileme"}{" "}
+            {({ NEW_BUSINESS: "Mağaza kurulumu", RENOVATION: "Yenileme", WHOLESALE: "Toptan altın", REPAIR: "Tamirat" } as Record<string, string>)[application.type] || application.type}{" "}
             &middot;{" "}
             {new Date(application.createdAt).toLocaleDateString("tr-TR", {
               day: "numeric",

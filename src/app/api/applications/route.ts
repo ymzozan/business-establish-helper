@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
+import { auth } from "@/lib/auth";
 
 const applicationSchema = z.object({
-  type: z.enum(["NEW_BUSINESS", "RENOVATION"]),
-  sectorSlug: z.string(),
+  type: z.enum(["NEW_BUSINESS", "RENOVATION", "WHOLESALE", "REPAIR"]),
+  sectorSlug: z.string().min(1).max(100),
+  notes: z.string().max(5000).optional(),
   firstName: z.string().min(2),
   lastName: z.string().min(2),
   phone: z.string().min(10),
@@ -32,6 +34,7 @@ export async function POST(request: NextRequest) {
         phone: data.phone,
         email: data.email,
         city: data.city,
+        notes: data.notes,
         answers: {
           create: data.answers.map((a) => ({
             questionId: a.questionId,
@@ -61,6 +64,8 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  const session = await auth();
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status");
   const search = searchParams.get("search");

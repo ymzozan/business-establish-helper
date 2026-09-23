@@ -17,9 +17,9 @@ const cormorant = Cormorant_Garamond({
 });
 
 export const metadata: Metadata = {
-  title: "Kuyumcu Otomasyon - B2B Yönlendirme Platformu",
+  title: "Kuyumcu Merkezi | Toptan Altın, Tamirat ve Mağaza Kurulumu",
   description:
-    "Kuyumcu sektörü için akıllı ihtiyaç analizi ve hizmet paketleme platformu",
+    "Metrekarenize göre kuyumcu mağazanızı planlayın. Tezgah, vitrin, altın tedariği, tamirat ve montaj ihtiyaçlarınız için teklif alın.",
 };
 
 export default function RootLayout({
