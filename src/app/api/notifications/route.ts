@@ -1,3 +1,4 @@
+import { requireStaff } from "@/lib/api-access";
 import { NextRequest, NextResponse } from "next/server";
 
 // Email notification via Resend
@@ -22,6 +23,9 @@ async function sendEmail(to: string, subject: string, html: string) {
 }
 
 export async function POST(request: NextRequest) {
+  const denied = await requireStaff();
+  if (denied) return denied;
+
   try {
     const { type, applicationId, to, data } = await request.json();
 

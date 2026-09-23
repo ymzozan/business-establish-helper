@@ -1,3 +1,4 @@
+import { requireStaff } from "@/lib/api-access";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
@@ -5,6 +6,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await requireStaff(true);
+  if (denied) return denied;
+
   const { id } = await params;
   const body = await request.json();
 
@@ -29,6 +33,9 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await requireStaff(true);
+  if (denied) return denied;
+
   const { id } = await params;
 
   await prisma.answer.deleteMany({ where: { questionId: id } });

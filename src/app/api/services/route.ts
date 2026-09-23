@@ -1,3 +1,4 @@
+import { requireStaff } from "@/lib/api-access";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
@@ -16,6 +17,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const denied = await requireStaff(true);
+  if (denied) return denied;
+
   try {
     const body = await request.json();
     const sector = await prisma.sector.findUnique({

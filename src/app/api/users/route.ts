@@ -1,8 +1,12 @@
+import { requireStaff } from "@/lib/api-access";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
 
 export async function GET() {
+  const denied = await requireStaff(true);
+  if (denied) return denied;
+
   const users = await prisma.user.findMany({
     select: {
       id: true,
@@ -19,6 +23,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const denied = await requireStaff(true);
+  if (denied) return denied;
+
   try {
     const body = await request.json();
 
