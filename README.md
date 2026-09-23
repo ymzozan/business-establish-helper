@@ -1,36 +1,47 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Kuyumcu Merkezi
 
-## Getting Started
+Next.js 16 ile hazırlanmış kuyumcu mağazası kurulum, toptan altın ve tamirat talep sitesi.
 
-First, run the development server:
+## Yerel geliştirme
 
-```bash
+```sh
+npm ci
+vercel env pull .env.local --environment=development
+npm run db:generate
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Veritabanı Neon PostgreSQL üzerinde çalışır. Prisma şu ortam değişkenlerini kullanır:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- `KUYUMCU_DATABASE_URL`: havuzlu uygulama bağlantısı.
+- `KUYUMCU_DATABASE_URL_UNPOOLED`: migration için doğrudan bağlantı.
+- `KUYUMCU_AUTH_SECRET`: Vercel panel oturumu anahtarı. Yerelde `AUTH_SECRET` kullanılabilir.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+`.env.example` yalnızca şablondur. Gerçek bağlantıları ve parolaları Git'e eklemeyin. `.vercelignore` yerel gizli dosyaların dağıtım paketine alınmasını engeller.
 
-## Learn More
+## Veritabanı
 
-To learn more about Next.js, take a look at the following resources:
+Önce proje bağlantısı ve ortam değişkenleri doğrulanmalıdır. Mevcut migration dosyalarıyla kurulum:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```sh
+node scripts/database-command.mjs migrate
+node scripts/database-command.mjs status
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Bu komutlar `.env.local` ve geliştirme ayarlarını yükler; veritabanını sıfırlamaz. Eski `db:seed` komutu örnek parola ve veri temizliği içerdiğinden canlı veritabanında kullanılmamalıdır.
 
-## Deploy on Vercel
+## Doğrulama
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Yerel sunucu açıkken `node scripts/verify-requests.cjs` üç talep türünün API ve veritabanı kaydını, yönetici oturumunu ve durum güncellemeyi kontrol eder. Yalnızca kendi benzersiz işaretli test kayıtlarını temizler. Yönetici testi için Git tarafından yok sayılan `.env.admin.local` içinde `ADMIN_EMAIL` ve `ADMIN_PASSWORD` gerekir.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Panel `/giris` adresinden açılır. Başvurular ve yönetim API'leri yetki kontrolü yapar. Kullanıcı, hizmet ve soru yönetimi ADMIN rolüne açıktır.
+
+## Yayın
+
+```sh
+vercel deploy --yes
+```
+
+Önizleme varsayılan hedeftir. Üretim yayını ayrıca `--prod` gerektirir. Derleme Prisma istemcisini üretir; migration otomatik çalıştırılmaz. Neon bağlantısı önizlemeler için ayrı veritabanı dalları oluşturacak şekilde yapılandırılmıştır.
+
+Marka adı, mağaza modelleri ve görsel temsili başlangıç içeriğidir. Formlar ödeme veya kesin sipariş oluşturmaz; satış ekibine değerlendirme için talep kaydeder.
