@@ -1,91 +1,233 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import Image from "next/image";
-import { ArrowRight, Check, Diamond, Hammer, Store, Ruler, ShieldCheck, Truck, Plus } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { GoldScene } from "./GoldScene";
+import { ArrowLeft, ArrowRight, Check, CheckCircle2, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  goldProducts, goldPurities, repairItems, repairOperations, requestDetailRows,
+  requestDetailsSchema, storeModels, storeModules, storeStates,
+  type RequestDetails, type RequestKind,
+} from "@/lib/request-details";
 
-type Service = "NEW_BUSINESS" | "WHOLESALE" | "REPAIR";
 const services = [
-  { id: "NEW_BUSINESS" as const, icon: Store, title: "Kuyumcu açmak istiyorum", text: "Boş bir dükkândan açılış gününe. Mağazanızı birlikte kuralım.", tag: "ANAHTAR TESLİM" },
-  { id: "WHOLESALE" as const, icon: Diamond, title: "Toptan altın almak istiyorum", text: "Vitrininize uygun ürün grubunu, ayarını ve miktarını seçin.", tag: "TOPTAN TEDARİK" },
-  { id: "REPAIR" as const, icon: Hammer, title: "Tamirat yaptırmak istiyorum", text: "Ölçü değişimi, kaynak, taş montajı ve bakım talepleriniz.", tag: "ATÖLYE HİZMETLERİ" },
+  { kind: "NEW_BUSINESS" as const, image: "/images/kuyumcu-konsept.png", alt: "Aydınlık vitrinleriyle temsili kuyumcu mağazası", hint: "Fikirden açılışa", title: "Kuyumcu açmak istiyorum" },
+  { kind: "WHOLESALE" as const, image: "/images/toptan-altin.png", alt: "Altın bilezik, yüzük ve kolye koleksiyonu", hint: "Vitrininiz için", title: "Toptan altın almak istiyorum" },
+  { kind: "REPAIR" as const, image: "/images/altin-tamirat.png", alt: "Bir altın yüzük üzerinde çalışan kuyumcu ustası", hint: "Usta ellerde", title: "Altın tamirat / tadilat yaptırmak istiyorum" },
 ];
-const models = [
-  { name: "Butik", range: "20–40 m²", min: 20, max: 40, detail: "Küçük alanda güçlü bir vitrin", material: "Açık meşe · krem · pirinç", layout: "Duvar vitrini + düz tezgah" },
-  { name: "Modern", range: "40–80 m²", min: 40, max: 80, detail: "Ferah, sıcak ve zamansız", material: "Ceviz · doğal taş · şampanya", layout: "Çift vitrin + karşılama tezgahı" },
-  { name: "Prestij", range: "80–200 m²", min: 80, max: 200, detail: "Geniş koleksiyonlara özel alan", material: "Koyu ahşap · mermer · bronz", layout: "Ada teşhir + özel görüşme alanı" },
-];
-const modules = ["Vitrin ve satış tezgahı", "Aydınlatma ve dekorasyon", "Kasa, kamera ve alarm", "Terazi ve kuyumcu yazılımı", "Başlangıç altın stoğu", "Nakliye ve yerinde montaj"];
+
+type Contact = { firstName: string; lastName: string; phone: string; email: string; city: string; note: string };
+const emptyContact: Contact = { firstName: "", lastName: "", phone: "", email: "", city: "", note: "" };
+
+function Choices({ label, values, selected, onChange, multiple = false }: {
+  label: string; values: readonly string[]; selected: string | string[];
+  onChange: (value: string) => void; multiple?: boolean;
+}) {
+  return (
+    <fieldset className="choice-group">
+      <legend>{label}</legend>
+      <div className="choice-options">
+        {values.map((value) => {
+          const checked = Array.isArray(selected) ? selected.includes(value) : selected === value;
+          return (
+            <label key={value} className={`choice-option ${checked ? "is-selected" : ""}`}>
+              <input type={multiple ? "checkbox" : "radio"} name={label} value={value} checked={checked} onChange={() => onChange(value)} />
+              <span>{value}</span>
+              {checked && <Check size={15} aria-hidden="true" />}
+            </label>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}
 
 export function JewelryExperience() {
-  const [service, setService] = useState<Service>("NEW_BUSINESS");
-  const [area, setArea] = useState("55");
-  const [model, setModel] = useState("Modern");
-  const [selected, setSelected] = useState(modules);
-  const [product, setProduct] = useState("Bilezik");
-  const [purity, setPurity] = useState("22 ayar");
-  const [quantity, setQuantity] = useState("100");
-  const [repair, setRepair] = useState("Ölçü değişimi");
-  const [detail, setDetail] = useState("");
+  const [kind, setKind] = useState<RequestKind | null>(null);
+  const [step, setStep] = useState<0 | 1 | 2>(0);
+  const [storeState, setStoreState] = useState("");
+  const [area, setArea] = useState("");
+  const [model, setModel] = useState("Birlikte seçelim");
+  const [modules, setModules] = useState<string[]>(["Anahtar teslim"]);
+  const [products, setProducts] = useState<string[]>([]);
+  const [purity, setPurity] = useState("Birlikte seçelim");
+  const [grams, setGrams] = useState("");
+  const [item, setItem] = useState("");
+  const [operation, setOperation] = useState("");
+  const [contact, setContact] = useState<Contact>(emptyContact);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [receipt, setReceipt] = useState("");
-  const active = services.find((item) => item.id === service)!;
-  const validArea = Number(area) >= 10 && Number(area) <= 1000;
-  const summary = service === "NEW_BUSINESS"
-    ? `${area} m² · ${model} model\n${selected.join("\n")}`
-    : service === "WHOLESALE" ? `${product} · ${purity} · ${quantity} gram` : `${repair}\n${detail}`;
+  const heading = useRef<HTMLHeadingElement>(null);
+  const previousStep = useRef(step);
+  const submitting = useRef(false);
+  const active = services.find((service) => service.kind === kind);
 
-  function chooseService(value: Service) {
-    setService(value); setError(""); setReceipt("");
-    document.getElementById("planla")?.scrollIntoView({ behavior: "smooth" });
+  useEffect(() => {
+    if (previousStep.current !== step || receipt) {
+      heading.current?.focus({ preventScroll: true });
+      window.scrollTo({ top: 0, behavior: "instant" });
+    }
+    previousStep.current = step;
+  }, [step, receipt]);
+
+  function details(): RequestDetails | null {
+    const candidate = kind === "NEW_BUSINESS"
+      ? { kind, storeState, area: area.trim() ? Number(area) : null, model, modules }
+      : kind === "WHOLESALE"
+        ? { kind, products, purity, grams: grams.trim() ? Number(grams) : null }
+        : { kind, item, operation };
+    const result = requestDetailsSchema.safeParse(candidate);
+    return result.success ? result.data : null;
   }
+
+  function go(next: 0 | 1 | 2) {
+    if (pending) return;
+    setError("");
+    setStep(next);
+  }
+
+  function toggle(values: string[], value: string) {
+    return values.includes(value) ? values.filter((entry) => entry !== value) : [...values, value];
+  }
+
+  function continueToContact(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!details()) {
+      setError(kind === "NEW_BUSINESS" ? "Dükkan durumunu ve en az bir hizmeti seçin. Alanı biliyorsanız 10–1.000 m² arasında girin." : kind === "WHOLESALE" ? "En az bir ürün seçin. Miktarı biliyorsanız geçerli bir gram değeri girin." : "Ürünü ve istediğiniz işlemi seçin.");
+      return;
+    }
+    go(2);
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (service === "NEW_BUSINESS" && (!validArea || selected.length === 0)) { setError("10–1.000 m² arasında bir alan ve en az bir paket içeriği seçin."); return; }
-    if (service === "WHOLESALE" && (!Number.isFinite(Number(quantity)) || Number(quantity) <= 0)) { setError("Geçerli bir gram miktarı girin."); return; }
-    if (service === "REPAIR" && detail.trim().length < 10) { setError("Tamirat ihtiyacınızı en az 10 karakterle açıklayın."); return; }
-    const form = new FormData(event.currentTarget);
-    setPending(true); setError("");
+    if (submitting.current) return;
+    const selectedDetails = details();
+    if (!selectedDetails) { go(1); return; }
+    if (contact.firstName.trim().length < 2 || contact.lastName.trim().length < 2 || contact.phone.replace(/\D/g, "").length < 10) {
+      setError("Ad, soyad ve telefon bilgilerinizi kontrol edin.");
+      return;
+    }
+    submitting.current = true;
+    setPending(true);
+    setError("");
     try {
-      const response = await fetch("/api/applications", { method: "POST", signal: AbortSignal.timeout(15000), headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: service, sectorSlug: "kuyumcu", firstName: form.get("firstName"), lastName: form.get("lastName"), phone: form.get("phone"), email: form.get("email"), city: form.get("city"), answers: [], notes: `${active.title}\n${summary}\nEk not: ${form.get("note") || "—"}` }) });
-      if (!response.ok) throw new Error("Talebiniz kaydedilemedi. Bilgilerinizi kontrol edip tekrar deneyin.");
-      const data = await response.json(); setReceipt(data.id);
-    } catch (e) { setError(e instanceof Error && e.name === "TimeoutError" ? "Bağlantı zaman aşımına uğradı. Lütfen tekrar deneyin." : e instanceof Error ? e.message : "Bağlantı kurulamadı. Lütfen tekrar deneyin."); }
-    finally { setPending(false); }
+      const response = await fetch("/api/applications", {
+        method: "POST",
+        signal: AbortSignal.timeout(20000),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: kind, sectorSlug: "kuyumcu", firstName: contact.firstName,
+          lastName: contact.lastName, phone: contact.phone, email: contact.email,
+          city: contact.city, customerNote: contact.note, details: selectedDetails, answers: [],
+        }),
+      });
+      if (!response.ok) throw new Error("Talebiniz gönderilemedi. Bilgileriniz burada duruyor; tekrar deneyebilirsiniz.");
+      const saved = await response.json();
+      setReceipt(saved.id);
+    } catch (cause) {
+      setError(cause instanceof Error && cause.name === "TimeoutError" ? "Yanıt gecikti. Lütfen tekrar deneyin." : cause instanceof Error ? cause.message : "Bağlantı kurulamadı. Tekrar deneyin.");
+    } finally {
+      submitting.current = false;
+      setPending(false);
+    }
   }
 
-  return <div className="jewelry-site">
-    <section className="j-hero">
-      <div className="j-hero-copy"><p className="j-eyebrow"><span /> KUYUMCULUĞUN HER ADIMINDA</p>
-        <h1>Hayalinizdeki kuyumcu.<br /><em>Her şeyiyle hazır.</em></h1>
-        <p className="j-lead">Tezgahından ilk altınına, tasarımından montajına.<br className="hidden sm:block" /> Kuyumcu açmanın tüm adımları tek bir yerde.</p>
-        <a href="#planla" className="j-button">Mağazamı oluştur <ArrowRight size={18} /></a>
-        <a href="#hizmetler" className="j-text-link">Tüm hizmetleri keşfet <ArrowRight size={16} /></a>
-        <div className="j-hero-note"><ShieldCheck size={19} /><span>İhtiyacınıza özel planlama. Tek noktadan koordinasyon.</span></div>
+  function reset() {
+    setReceipt(""); setKind(null); setStep(0); setContact(emptyContact);
+    setStoreState(""); setArea(""); setModel("Birlikte seçelim"); setModules(["Anahtar teslim"]);
+    setProducts([]); setPurity("Birlikte seçelim"); setGrams(""); setItem(""); setOperation(""); setError("");
+  }
+
+  if (receipt) return (
+    <section className="simple-success">
+      <span className="success-icon"><CheckCircle2 size={34} strokeWidth={1.5} /></span>
+      <h1 ref={heading} tabIndex={-1}>Talebiniz bize ulaştı.</h1>
+      <p>Seçimlerinizi aldık. Sizinle iletişime geçeceğiz.</p>
+      <div className="success-request"><span>{active?.title}</span><small>Talep no: {receipt}</small></div>
+      <Button onClick={reset} className="simple-primary">Ana sayfaya dön <ArrowRight size={18} /></Button>
+    </section>
+  );
+
+  if (step === 0) return (
+    <section className="simple-home">
+      <div className="simple-intro">
+        <GoldScene />
+        <span className="simple-kicker">Sizin için buradayız.</span>
+        <h1 ref={heading} tabIndex={-1}>Ne yapmak istiyorsunuz?</h1>
+        <p>Birini seçin. Gerisini birlikte planlayalım.</p>
       </div>
-      <div className="j-hero-image"><Image src="/images/kuyumcu-konsept.png" alt="Ceviz tezgahlar ve aydınlatmalı vitrinlerden oluşan temsili kuyumcu mağazası" fill priority sizes="(max-width: 800px) 100vw, 55vw" /><div className="j-image-caption"><span>MODERN KOLEKSİYON</span><strong>Bir dükkândan çok daha fazlası.</strong><small>Temsili konsept görseli</small></div><a className="j-image-arrow" href="#planla" aria-label="Modern mağaza modelini incele"><ArrowRight /></a></div>
+      <div className="service-choices">
+        {services.map((service) => (
+          <button key={service.kind} className="service-choice" onClick={() => { setKind(service.kind); go(1); }}>
+            <div className="service-photo"><Image src={service.image} alt={service.alt} fill sizes="(max-width: 700px) 36vw, 350px" priority /></div>
+            <div className="service-copy"><span className="service-hint">{service.hint}</span><h2>{service.title}</h2><span className="service-next" aria-hidden="true"><ArrowRight size={20} /></span></div>
+          </button>
+        ))}
+      </div>
+      <p className="simple-reassurance">Size özel teklif · Üyelik gerekmez</p>
     </section>
-    <div className="j-promise"><span><Ruler /> Alanınıza özel tasarım</span><span><Diamond /> Toptan altın tedariği</span><span><Hammer /> Tamirat ve bakım</span><span><Truck /> Kurulum ve montaj</span></div>
-    <section id="hizmetler" className="j-section"><div className="j-section-heading"><div><p className="j-eyebrow">TEK ADRES, TÜM İHTİYAÇLARINIZ</p><h2>Nereden başlamak istersiniz?</h2></div><p>Yeni bir başlangıç ya da mevcut işinize destek.<br />Size uygun çözümü birlikte oluşturalım.</p></div>
-      <div className="j-services">{services.map(({ id, icon: Icon, title, text, tag }, i) => <button key={id} onClick={() => chooseService(id)} className={`j-service ${i === 0 ? "j-service-featured" : ""}`}><div className="j-service-top"><Icon size={29} strokeWidth={1.3}/><span>0{i + 1}</span></div><p className="j-eyebrow">{tag}</p><h3>{title}</h3><p>{text}</p><span className="j-service-link">{id === "NEW_BUSINESS" ? "Mağazanı planla" : "Talebini oluştur"}<ArrowRight size={19}/></span></button>)}</div>
+  );
+
+  return (
+    <section className="simple-flow">
+      <div className="flow-topline">
+        <button type="button" onClick={() => go(step === 2 ? 1 : 0)} disabled={pending} className="simple-back"><ArrowLeft size={17} /> Geri</button>
+        <ol className="flow-progress" aria-label="Başvuru adımları">
+          {["İhtiyaç", "Detaylar", "İletişim"].map((label, index) => <li key={label} aria-current={step === index ? "step" : undefined} className={index <= step ? "is-active" : ""}><span>{index < step ? <Check size={12} /> : index + 1}</span>{label}</li>)}
+        </ol>
+      </div>
+      <div className="flow-layout">
+        <aside className="flow-visual">
+          <div className="flow-photo"><Image src={active!.image} alt={active!.alt} fill sizes="(max-width: 700px) 80px, 340px" /></div>
+          <div><span className="simple-kicker">Seçtiğiniz hizmet</span><h2>{active!.title}</h2></div>
+        </aside>
+        <div className="flow-content">
+          <h1 ref={heading} tabIndex={-1}>{step === 1 ? "Biraz detay alalım." : "Sizi nasıl arayalım?"}</h1>
+          <p className="flow-subtitle">{step === 1 ? "Bildiğiniz kadarı yeterli." : "Bilgilerinizi bırakın, size ulaşalım."}</p>
+          {step === 1 ? (
+            <form onSubmit={continueToContact}>
+              {kind === "NEW_BUSINESS" && <>
+                <Choices label="Dükkanınız hazır mı?" values={storeStates} selected={storeState} onChange={setStoreState} />
+                <label className="simple-field compact-field">Kaç metrekare? <span className="optional">(biliyorsanız)</span><div className="number-with-unit"><Input type="number" min="10" max="1000" value={area} onChange={(event) => setArea(event.target.value)} placeholder="Örn. 50" /><span>m²</span></div></label>
+                <Choices label="Hangi mağaza modeli?" values={storeModels} selected={model} onChange={setModel} />
+                <Choices label="Neye ihtiyacınız var?" values={storeModules} selected={modules} multiple onChange={(value) => setModules((current) => value === "Anahtar teslim" ? current.includes(value) ? [] : [value] : toggle(current.filter((entry) => entry !== "Anahtar teslim"), value))} />
+              </>}
+              {kind === "WHOLESALE" && <>
+                <Choices label="Hangi ürünler?" values={goldProducts} selected={products} multiple onChange={(value) => setProducts((current) => toggle(current, value))} />
+                <Choices label="Kaç ayar olsun?" values={goldPurities} selected={purity} onChange={setPurity} />
+                <label className="simple-field compact-field">Yaklaşık miktar <span className="optional">(biliyorsanız)</span><div className="number-with-unit"><Input type="number" min="0.1" max="1000000" step="0.1" value={grams} onChange={(event) => setGrams(event.target.value)} placeholder="Örn. 100" /><span>gram</span></div></label>
+              </>}
+              {kind === "REPAIR" && <>
+                <Choices label="Hangi ürün için?" values={repairItems} selected={item} onChange={setItem} />
+                <Choices label="Ne yapılmasını istersiniz?" values={repairOperations} selected={operation} onChange={setOperation} />
+              </>}
+              {error && <p className="simple-error" role="alert">{error}</p>}
+              <div className="flow-actions"><Button type="submit" className="simple-primary">Devam et <ArrowRight size={18} /></Button><span>Sonraki adım: iletişim</span></div>
+            </form>
+          ) : (
+            <form onSubmit={submit}>
+              <fieldset disabled={pending}>
+                <div className="contact-grid">
+                  {([
+                    ["firstName", "Ad", "text", "given-name"], ["lastName", "Soyad", "text", "family-name"],
+                    ["phone", "Telefon", "tel", "tel"], ["city", "Şehir", "text", "address-level2"],
+                  ] as const).map(([name, label, type, autoComplete]) => <label key={name} className="simple-field">{label}{name === "city" && <span className="optional">(isteğe bağlı)</span>}<Input name={name} type={type} autoComplete={autoComplete} required={name !== "city"} minLength={name === "phone" ? 10 : name === "city" ? undefined : 2} maxLength={name === "phone" ? 30 : 100} value={contact[name]} onChange={(event) => setContact((current) => ({ ...current, [name]: event.target.value }))} /></label>)}
+                </div>
+                <label className="simple-field">Notunuz <span className="optional">(isteğe bağlı)</span><textarea name="note" rows={3} maxLength={2000} value={contact.note} onChange={(event) => setContact((current) => ({ ...current, note: event.target.value }))} placeholder="Eklemek istediğiniz bir şey var mı?" /></label>
+                <details className="optional-contact"><summary>E-posta da eklemek istiyorum</summary><label className="simple-field">E-posta<Input type="email" onInvalid={(event) => { const parent = event.currentTarget.closest("details"); if (parent) parent.open = true; }} name="email" autoComplete="email" maxLength={254} value={contact.email} onChange={(event) => setContact((current) => ({ ...current, email: event.target.value }))} /></label></details>
+                <details className="selection-review"><summary>Seçimlerimi kontrol et</summary><dl>{requestDetailRows(details()).map((row) => <div key={row.label}><dt>{row.label}</dt><dd>{row.value}</dd></div>)}</dl><button type="button" onClick={() => go(1)}>Seçimleri düzenle</button></details>
+                {error && <p className="simple-error" role="alert">{error}</p>}
+                <Button type="submit" disabled={pending} className="simple-primary submit-request">{pending ? <><Loader2 size={18} className="animate-spin" /> Gönderiliyor…</> : <>Talebimi gönder <ArrowRight size={18} /></>}</Button>
+                <p className="simple-privacy">Bilgileriniz yalnızca talebinize dönüş yapmak için kullanılır.</p>
+              </fieldset>
+            </form>
+          )}
+        </div>
+      </div>
     </section>
-    <section id="planla" className="j-planner"><div className="j-section-heading"><div><p className="j-eyebrow">FİKRİNİZİ BİRLİKTE GERÇEĞE DÖNÜŞTÜRELİM</p><h2>Sizin alanınız. Sizin seçiminiz.</h2></div><span className="j-planner-label">SEÇİN · PLANLAYIN · TEKLİF ALIN</span></div>
-      <div className="j-tabs" aria-label="Hizmet seçimi">{services.map((s) => <button key={s.id} aria-pressed={service === s.id} onClick={() => {setService(s.id); setError(""); setReceipt("");}}>{s.id === "NEW_BUSINESS" ? "Mağaza kurulumu" : s.id === "WHOLESALE" ? "Toptan altın" : "Tamirat"}</button>)}</div>
-      <div className="j-planner-grid"><div>
-        {service === "NEW_BUSINESS" ? <><div className="j-step-heading"><span>01</span><h3>Alanınızı tanıyalım</h3></div><label className="j-label" htmlFor="area">Mağazanız kaç metrekare?</label><div className="j-area"><Input id="area" type="number" min={10} max={1000} value={area} onChange={(e) => setArea(e.target.value)} /><span>m²</span></div><p className="j-help">10–1.000 m² için ön talep oluşturabilirsiniz. Yerleşim keşif sonrası netleşir.</p>
-        <div className="j-step-heading"><span>02</span><h3>Mağaza modelinizi seçin</h3></div><div className="j-models">{models.map((m) => <button key={m.name} className={`j-model ${model === m.name ? "selected" : ""}`} aria-pressed={model === m.name} onClick={() => setModel(m.name)}><div className="j-model-top"><strong>{m.name}</strong>{model === m.name ? <Check size={18}/> : <Plus size={18}/>}</div><span className="j-model-range">{m.range}</span><p>{m.detail}</p><small>{m.material}</small><small>{m.layout}</small>{Number(area) >= m.min && Number(area) <= m.max ? <span className="j-fit">Alanınıza uygun</span> : <span className="j-fit j-fit-muted">Özel ölçüyle uyarlanır</span>}</button>)}</div>
-        <div className="j-step-heading"><span>03</span><h3>Paketinize neler dahil olsun?</h3></div><div className="j-modules">{modules.map((item) => <label key={item}><input type="checkbox" checked={selected.includes(item)} onChange={() => setSelected((current) => current.includes(item) ? current.filter((s) => s !== item) : [...current, item])}/>{item}</label>)}</div></>
-        : service === "WHOLESALE" ? <><div className="j-step-heading"><span>01</span><h3>Vitrininiz için altın seçin</h3></div><p className="j-form-intro">Ürün grubu ve toplam gram talebinizi belirtin. Model, işçilik ve güncel fiyat teklif aşamasında netleştirilir.</p><div className="j-fields"><label>Ürün grubu<select value={product} onChange={(e) => setProduct(e.target.value)}>{["Bilezik", "Kolye ve zincir", "Yüzük", "Küpe", "Karma koleksiyon"].map((s) => <option key={s}>{s}</option>)}</select></label><label>Ayar<select value={purity} onChange={(e) => setPurity(e.target.value)}>{["8 ayar", "14 ayar", "18 ayar", "22 ayar"].map((s) => <option key={s}>{s}</option>)}</select></label><label>Toplam miktar (gram)<Input type="number" min="0.1" step="0.1" value={quantity} onChange={(e) => setQuantity(e.target.value)} /></label></div></>
-        : <><div className="j-step-heading"><span>01</span><h3>Takınıza yeniden hayat verelim</h3></div><p className="j-form-intro">İşlem ve ürün bilgilerini paylaşın. Uygunluk, ücret ve teslim süresi atölye incelemesinden sonra belirlenir.</p><label className="j-label">İşlem türü<select value={repair} onChange={(e) => setRepair(e.target.value)}>{["Ölçü değişimi", "Kaynak ve zincir onarımı", "Taş montajı", "Cila ve bakım", "Diğer"].map((s) => <option key={s}>{s}</option>)}</select></label><label className="j-label">Ürün ve tamirat açıklaması<textarea value={detail} onChange={(e) => setDetail(e.target.value)} maxLength={2000} placeholder="Örn. 14 ayar yüzüğün ölçüsünü büyütmek istiyorum…" rows={5}/></label></>}
-      </div><aside className="j-summary"><p className="j-eyebrow">TALEBİNİZİN ÖZETİ</p><h3>{service === "NEW_BUSINESS" ? "Mağazanız şekilleniyor." : service === "WHOLESALE" ? "Yeni koleksiyonunuz." : "Atölye talebiniz."}</h3><div className="j-summary-body" aria-live="polite">{service === "NEW_BUSINESS" ? <><div className="j-summary-spec"><span>{area || "—"}<small>metrekare</small></span><span>{model}<small>mağaza modeli</small></span></div><ul>{selected.map((item) => <li key={item}><Check size={16}/>{item}</li>)}</ul>{selected.length === 0 && <p>En az bir paket içeriği seçin.</p>}</> : <p className="whitespace-pre-line">{summary}</p>}</div><p className="j-summary-note">Size özel fiyatlandırma<br /><span>Seçimleriniz ön talep niteliğindedir. Fiyat ve teslim planı görüşme sonrası belirlenir.</span></p><a href="#teklif" className="j-button">Bu seçimlerle teklif al <ArrowRight size={17}/></a></aside></div>
-    </section>
-    <section className="j-section j-process" id="surec"><div><p className="j-eyebrow">İLK FİKİRDEN İLK MÜŞTERİYE</p><h2>Siz hayal edin.<br /><em>Biz bir araya getirelim.</em></h2></div><div className="j-process-list">{[["İhtiyacınızı belirleyin", "Alanınızı, mağaza modelinizi ve ihtiyaçlarınızı seçin."], ["Projenizi netleştirelim", "Ölçü, tasarım, ürünler ve bütçeyi birlikte planlayalım."], ["Kurulumdan açılışa", "Onaylanan teklife göre tedarik, montaj ve teslimi koordine edelim."]].map(([title, text], i) => <div key={title}><span>0{i + 1}</span><div><h3>{title}</h3><p>{text}</p></div></div>)}</div></section>
-    <section className="j-contact" id="teklif"><div><p className="j-eyebrow">BİRLİKTE BAŞLAYALIM</p><h2>Bir sonraki adım,<br /><em>sizinle tanışmak.</em></h2><p>Seçimlerinizi bize iletin. İhtiyacınıza uygun<br />tedarik, tamirat veya kurulum planını konuşalım.</p><div className="j-contact-selection"><active.icon size={22}/><span>{active.title}</span></div></div>
-      {receipt ? <div className="j-success" role="status"><Check size={36}/><h3>Talebiniz alındı.</h3><p>Seçimleriniz ve iletişim bilgileriniz kaydedildi.</p><p className="break-all">Talep numarası: {receipt}</p><Button className="j-button" onClick={() => setReceipt("")}>Yeni talep oluştur</Button></div> : <form onSubmit={submit} className="j-contact-form"><fieldset disabled={pending}><div className="j-fields">{[{name:"firstName",label:"Ad",type:"text",min:2},{name:"lastName",label:"Soyad",type:"text",min:2},{name:"phone",label:"Telefon",type:"tel",min:10},{name:"email",label:"E-posta",type:"email",min:5},{name:"city",label:"Şehir",type:"text",min:2}].map((f) => <label key={f.name}>{f.label}<Input name={f.name} type={f.type} required minLength={f.min} maxLength={150} autoComplete={f.name === "firstName" ? "given-name" : f.name === "lastName" ? "family-name" : f.name === "phone" ? "tel" : f.name === "city" ? "address-level2" : "email"}/></label>)}<label>Ek not (isteğe bağlı)<Input name="note" maxLength={1000}/></label></div><p className="j-help">İletişim bilgileriniz, talebinize dönüş yapılması için alınır. Bu form sipariş veya ödeme oluşturmaz.</p>{error && <p role="alert" className="j-error">{error}</p>}<Button type="submit" disabled={pending} className="j-button">{pending ? "Talebiniz gönderiliyor…" : "Teklif talebini gönder"}<ArrowRight size={18}/></Button></fieldset></form>}
-    </section>
-    <section className="j-section j-faq"><p className="j-eyebrow">MERAK ETTİKLERİNİZ</p><h2>Başlamadan önce.</h2>{[["Sadece tezgah veya altın alabilir miyim?", "Evet. İhtiyacınız olan paket içeriklerini seçebilir veya yalnızca toptan altın talebi oluşturabilirsiniz."],["Metrekareye göre kesin fiyat görebilir miyim?", "Metrekare planlama için başlangıçtır. Cephe, malzeme, güvenlik, altın miktarı ve montaj kapsamı fiyatı etkiler. Nihai teklif bu bilgiler netleşince hazırlanır."],["Montaj ve teslimat nasıl ilerler?", "Yerinde montajı paketinize ekleyebilirsiniz. Teslimat bölgesi, keşif ihtiyacı ve iş takvimi teklif görüşmesinde belirlenir."],["Tamirat fiyatı ne zaman belli olur?", "Ürünün durumu ve yapılacak işlem değerlendirildikten sonra fiyat ve süre bilgisi paylaşılır."]].map(([q,a]) => <details key={q}><summary>{q}<Plus size={18}/></summary><p>{a}</p></details>)}</section>
-  </div>;
+  );
 }

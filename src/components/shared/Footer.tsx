@@ -1,3 +1,10 @@
 import Link from "next/link";
-import { Diamond, ArrowUpRight } from "lucide-react";
-export function Footer() { return <footer className="j-footer"><div><Link href="/" className="j-logo"><Diamond size={30} strokeWidth={1.3}/><span>kuyumcu<span className="j-logo-sub">MERKEZİ</span></span></Link><p>Hayalinizdeki kuyumcu, her şeyiyle hazır.</p></div><nav aria-label="Alt menü"><Link href="/#planla">Mağaza kurulumu</Link><Link href="/#hizmetler">Toptan altın & tamirat</Link><Link href="/#teklif">İletişime geçin <ArrowUpRight size={14}/></Link><Link href="/giris">Yönetim paneli</Link></nav><div className="j-footer-bottom"><span>© {new Date().getFullYear()} Kuyumcu Merkezi</span><span>Tedarikten açılışa, birlikte.</span></div></footer>; }
+
+export function Footer() {
+  return (
+    <footer className="simple-footer">
+      <span>© {new Date().getFullYear()} Kuyumcu Merkezi</span>
+      <Link href="/giris">Yönetim girişi</Link>
+    </footer>
+  );
+}

@@ -3,14 +3,18 @@ import { prisma } from "@/lib/db";
 import { z } from "zod";
 import { requireStaff } from "@/lib/api-access";
 
+import { requestDetailsSchema } from "@/lib/request-details";
+
 const applicationSchema = z.object({
   type: z.enum(["NEW_BUSINESS", "RENOVATION", "WHOLESALE", "REPAIR"]),
   sectorSlug: z.string().min(1).max(100),
+  details: requestDetailsSchema.optional(),
+  customerNote: z.string().trim().max(2000).optional(),
   notes: z.string().max(5000).optional(),
   firstName: z.string().trim().min(2).max(100),
   lastName: z.string().trim().min(2).max(100),
-  phone: z.string().trim().min(10).max(30),
-  email: z.string().trim().email().max(254),
+  phone: z.string().trim().min(10).max(30).refine((value) => /^\d{10,15}$/.test(value.replace(/\D/g, ""))),
+  email: z.union([z.string().trim().email().max(254), z.literal("")]).default(""),
   city: z.string().trim().max(100).optional(),
   answers: z.array(
     z.object({
@@ -18,7 +22,7 @@ const applicationSchema = z.object({
       value: z.unknown(),
     })
   ),
-});
+}).refine((data) => !data.details || data.details.kind === data.type, { message: "Service and details must match", path: ["details"] });
 
 export async function POST(request: NextRequest) {
   try {
@@ -35,6 +39,8 @@ export async function POST(request: NextRequest) {
         email: data.email,
         city: data.city,
         notes: data.notes,
+        details: data.details,
+        customerNote: data.customerNote,
         answers: {
           create: data.answers.map((a) => ({
             questionId: a.questionId,

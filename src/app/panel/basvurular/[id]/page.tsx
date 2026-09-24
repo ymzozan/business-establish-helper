@@ -1,3 +1,4 @@
+import { requestDetailRows } from "@/lib/request-details";
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -86,7 +87,7 @@ export default async function ApplicationDetailPage({
             <Separator />
             <div className="flex justify-between">
               <span className="text-gray-500">E-posta</span>
-              <span>{application.email}</span>
+              <span>{application.email || "Belirtilmedi"}</span>
             </div>
             <Separator />
             <div className="flex justify-between">
@@ -111,8 +112,13 @@ export default async function ApplicationDetailPage({
         />
       </div>
 
+      {requestDetailRows(application.details).length > 0 && <Card>
+        <CardHeader><CardTitle className="text-base">Müşterinin seçimleri</CardTitle></CardHeader>
+        <CardContent><dl className="space-y-3">{requestDetailRows(application.details).map((row) => <div key={row.label} className="flex justify-between gap-6 text-sm"><dt className="text-gray-500">{row.label}</dt><dd className="text-right font-medium">{row.value}</dd></div>)}</dl></CardContent>
+      </Card>}
+      {application.customerNote && <Card><CardHeader><CardTitle className="text-base">Müşteri notu</CardTitle></CardHeader><CardContent className="whitespace-pre-wrap text-sm">{application.customerNote}</CardContent></Card>}
       {/* Answers */}
-      <Card>
+      {application.answers.length > 0 && <Card>
         <CardHeader>
           <CardTitle className="text-base">Cevaplar</CardTitle>
         </CardHeader>
@@ -132,7 +138,7 @@ export default async function ApplicationDetailPage({
             ))}
           </div>
         </CardContent>
-      </Card>
+      </Card>}
 
       {/* Package */}
       {application.package && (
