@@ -24,11 +24,11 @@ function cookieHeader() { return [...cookies].map(([key, value]) => `${key}=${va
   for (const type of ['NEW_BUSINESS','WHOLESALE','REPAIR']) {
     const details = type === 'NEW_BUSINESS' ? {kind:type,storeState:'Dükkanım var',area:55,model:'Modern',modules:['Vitrin ve tezgah','Montaj']} : type === 'WHOLESALE' ? {kind:type,products:['Küpe'],purity:'14 ayar',grams:250} : {kind:type,item:'Yüzük',operation:'Ölçü değişimi'};
     const notes = `${marker}\n${type === 'NEW_BUSINESS' ? '55 m² · Modern · Vitrin ve montaj' : type === 'WHOLESALE' ? 'Küpe · 14 ayar · 250 gram' : '14 ayar yüzük ölçü değişimi'}`;
-    const response = await fetch(`${base}/api/applications`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,sectorSlug:'kuyumcu',firstName:'Sistem',lastName:'Testi',phone:'05000000000',email:'',city:'Test',answers:[],notes,details,customerNote:marker})});
+    const response = await fetch(`${base}/api/applications`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,sectorSlug:'kuyumcu',firstName:'Sistem',lastName:'Testi',phone:'05000000000',email:'',city:'Test',answers:[],notes,details,customerNote:marker,budget:"500.000 TL"})});
     assert.equal(response.status,201,`${type}: create failed`);
     const result=await response.json(); ids.push(result.id);
     const saved=await db.application.findUniqueOrThrow({where:{id:result.id}});
-    assert.equal(saved.type,type); assert.equal(saved.notes,notes); assert.deepEqual(saved.details,details); assert.equal(saved.customerNote,marker);
+    assert.equal(saved.type,type); assert.equal(saved.notes,notes); assert.deepEqual(saved.details,details); assert.equal(saved.customerNote,marker); assert.equal(saved.budget,"500.000 TL");
     console.log(`${type}: API create and database persistence PASS`);
   }
   const denied=await fetch(`${base}/api/applications/${ids[0]}`); assert.equal(denied.status,401);
@@ -42,7 +42,9 @@ function cookieHeader() { return [...cookies].map(([key, value]) => `${key}=${va
   const applications=await listing.json();assert(ids.every(id=>applications.some(a=>a.id===id)));
   const update=await fetch(`${base}/api/applications/${ids[0]}`,{method:'PATCH',headers:{Cookie:cookieHeader(),'Content-Type':'application/json'},body:JSON.stringify({status:'IN_PROGRESS',notes:'Staff-only verification note'})});assert.equal(update.status,200);
   const changed=await db.application.findUniqueOrThrow({where:{id:ids[0]}});assert.equal(changed.status,'IN_PROGRESS'); assert.equal(changed.customerNote,marker); assert.equal(changed.details.model,'Modern');
-  const panel=await fetch(`${base}/panel/basvurular/${ids[0]}`,{headers:{Cookie:cookieHeader()}}); assert.equal(panel.status,200); const html=await panel.text(); assert(html.includes('Müşterinin seçimleri')); assert(html.includes(marker));
+  const panel=await fetch(`${base}/panel/basvurular/${ids[0]}`,{headers:{Cookie:cookieHeader()}}); assert.equal(panel.status,200); const html=await panel.text(); assert(html.includes('Müşterinin seçimleri')); assert(html.includes(marker)); assert(html.includes('500.000 TL'));
+  const inbox=await fetch(`${base}/panel/basvurular?q=Sistem&type=NEW_BUSINESS&status=IN_PROGRESS`,{headers:{Cookie:cookieHeader()}});const inboxHtml=await inbox.text();assert.equal(inbox.status,200);assert(inboxHtml.includes(ids[0]));assert(!inboxHtml.includes(ids[1]));assert(inboxHtml.includes('500.000 TL'));
+  const malformed=await fetch(`${base}/api/applications`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'REPAIR',sectorSlug:'kuyumcu',firstName:'Test',lastName:'Test',phone:'05000000000',answers:[],budget:'x'.repeat(101)})});assert.equal(malformed.status,400);
   console.log('Administrator login, request listing, status update and anonymous access denial PASS');
 })().catch(e=>{console.error(e.name,e.message);process.exitCode=1;}).finally(async()=>{
   if(ids.length) { const removed=await db.application.deleteMany({where:{id:{in:ids},customerNote:marker}}); console.log(`${removed.count} test-only records removed`); }

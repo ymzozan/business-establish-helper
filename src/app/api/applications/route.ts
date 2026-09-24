@@ -9,6 +9,7 @@ const applicationSchema = z.object({
   type: z.enum(["NEW_BUSINESS", "RENOVATION", "WHOLESALE", "REPAIR"]),
   sectorSlug: z.string().min(1).max(100),
   details: requestDetailsSchema.optional(),
+  budget: z.string().trim().max(100).optional(),
   customerNote: z.string().trim().max(2000).optional(),
   notes: z.string().max(5000).optional(),
   firstName: z.string().trim().min(2).max(100),
@@ -41,6 +42,7 @@ export async function POST(request: NextRequest) {
         notes: data.notes,
         details: data.details,
         customerNote: data.customerNote,
+        budget: data.budget,
         answers: {
           create: data.answers.map((a) => ({
             questionId: a.questionId,

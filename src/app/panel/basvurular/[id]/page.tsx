@@ -1,4 +1,5 @@
 import { requestDetailRows } from "@/lib/request-details";
+import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,13 +47,26 @@ export default async function ApplicationDetailPage({
 
   return (
     <div className="space-y-6 max-w-4xl">
+      <Link
+        href="/panel/basvurular"
+        className="text-sm text-muted-foreground inline-flex py-2"
+      >
+        ← Gelen taleplere dön
+      </Link>
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">
             {application.firstName} {application.lastName}
           </h1>
           <p className="text-gray-500 text-sm">
-            {({ NEW_BUSINESS: "Mağaza kurulumu", RENOVATION: "Yenileme", WHOLESALE: "Toptan altın", REPAIR: "Tamirat" } as Record<string, string>)[application.type] || application.type}{" "}
+            {(
+              {
+                NEW_BUSINESS: "Mağaza kurulumu",
+                RENOVATION: "Yenileme",
+                WHOLESALE: "Toptan altın",
+                REPAIR: "Tamirat",
+              } as Record<string, string>
+            )[application.type] || application.type}{" "}
             &middot;{" "}
             {new Date(application.createdAt).toLocaleDateString("tr-TR", {
               day: "numeric",
@@ -112,33 +126,68 @@ export default async function ApplicationDetailPage({
         />
       </div>
 
-      {requestDetailRows(application.details).length > 0 && <Card>
-        <CardHeader><CardTitle className="text-base">Müşterinin seçimleri</CardTitle></CardHeader>
-        <CardContent><dl className="space-y-3">{requestDetailRows(application.details).map((row) => <div key={row.label} className="flex justify-between gap-6 text-sm"><dt className="text-gray-500">{row.label}</dt><dd className="text-right font-medium">{row.value}</dd></div>)}</dl></CardContent>
-      </Card>}
-      {application.customerNote && <Card><CardHeader><CardTitle className="text-base">Müşteri notu</CardTitle></CardHeader><CardContent className="whitespace-pre-wrap text-sm">{application.customerNote}</CardContent></Card>}
-      {/* Answers */}
-      {application.answers.length > 0 && <Card>
+      {requestDetailRows(application.details).length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Müşterinin seçimleri</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <dl className="space-y-3">
+              {requestDetailRows(application.details).map((row) => (
+                <div
+                  key={row.label}
+                  className="flex justify-between gap-6 text-sm"
+                >
+                  <dt className="text-gray-500">{row.label}</dt>
+                  <dd className="text-right font-medium">{row.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </CardContent>
+        </Card>
+      )}
+      <Card>
         <CardHeader>
-          <CardTitle className="text-base">Cevaplar</CardTitle>
+          <CardTitle className="text-base">Tahmini bütçe</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {application.answers.map((answer) => (
-              <div key={answer.id} className="flex justify-between text-sm">
-                <span className="text-gray-500">{answer.question.text}</span>
-                <span className="font-medium text-right max-w-[50%]">
-                  {(() => {
-                    const val = JSON.parse(answer.value);
-                    if (Array.isArray(val)) return val.join(", ");
-                    return String(val);
-                  })()}
-                </span>
-              </div>
-            ))}
-          </div>
+        <CardContent className="text-sm">
+          {application.budget || "Belirtilmedi"}
         </CardContent>
-      </Card>}
+      </Card>
+      {application.customerNote && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Müşteri notu</CardTitle>
+          </CardHeader>
+          <CardContent className="whitespace-pre-wrap text-sm">
+            {application.customerNote}
+          </CardContent>
+        </Card>
+      )}
+      {/* Answers */}
+      {application.answers.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Cevaplar</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {application.answers.map((answer) => (
+                <div key={answer.id} className="flex justify-between text-sm">
+                  <span className="text-gray-500">{answer.question.text}</span>
+                  <span className="font-medium text-right max-w-[50%]">
+                    {(() => {
+                      const val = JSON.parse(answer.value);
+                      if (Array.isArray(val)) return val.join(", ");
+                      return String(val);
+                    })()}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Package */}
       {application.package && (
