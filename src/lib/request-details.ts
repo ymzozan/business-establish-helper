@@ -1,24 +1,26 @@
 import { z } from "zod";
 
-export const storeStates = ["Dükkanım var", "Dükkan arıyorum"] as const;
+export const storeStates = ["Dükkanım var", "Dükkan arıyorum", "Henüz bilmiyorum"] as const;
 export const storeModels = ["Butik", "Modern", "Prestij", "Birlikte seçelim"] as const;
 export const storeModules = ["Anahtar teslim", "Vitrin ve tezgah", "Dekorasyon", "Güvenlik", "Altın stoğu", "Montaj"] as const;
-export const goldProducts = ["Bilezik", "Kolye / zincir", "Yüzük", "Küpe", "Karma koleksiyon"] as const;
+export const goldProducts = ["Bilezik", "Kolye / zincir", "Yüzük", "Küpe", "Karma koleksiyon", "Birlikte seçelim"] as const;
 export const goldPurities = ["8 ayar", "14 ayar", "18 ayar", "22 ayar", "Birlikte seçelim"] as const;
-export const repairItems = ["Yüzük", "Bilezik", "Kolye / zincir", "Küpe", "Diğer"] as const;
-export const repairOperations = ["Ölçü değişimi", "Kaynak / onarım", "Taş montajı", "Cila / bakım", "Diğer"] as const;
+export const repairItems = ["Yüzük", "Bilezik", "Kolye / zincir", "Küpe", "Diğer", "Henüz bilmiyorum"] as const;
+export const repairOperations = ["Ölçü değişimi", "Kaynak / onarım", "Taş montajı", "Cila / bakım", "Diğer", "Henüz bilmiyorum"] as const;
 
 export const requestDetailsSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("NEW_BUSINESS"),
     storeState: z.enum(storeStates),
+    location: z.string().trim().max(150).optional(),
+    opening: z.string().trim().max(100).optional(),
     area: z.number().min(10).max(1000).nullable(),
     model: z.enum(storeModels),
     modules: z.array(z.enum(storeModules)).min(1).max(6),
   }),
   z.object({
     kind: z.literal("WHOLESALE"),
-    products: z.array(z.enum(goldProducts)).min(1).max(5),
+    products: z.array(z.enum(goldProducts)).min(1).max(6),
     purity: z.enum(goldPurities),
     grams: z.number().positive().max(1000000).nullable(),
   }),
@@ -26,6 +28,7 @@ export const requestDetailsSchema = z.discriminatedUnion("kind", [
     kind: z.literal("REPAIR"),
     item: z.enum(repairItems),
     operation: z.enum(repairOperations),
+    issue: z.string().trim().max(1000).optional(),
   }),
 ]);
 
@@ -42,6 +45,8 @@ export function requestDetailRows(value: unknown): { label: string; value: strin
   if (!parsed.success) return [];
   const details = parsed.data;
   if (details.kind === "NEW_BUSINESS") return [
+    { label: "Konum", value: details.location || "Henüz belli değil" },
+    { label: "Hedef açılış", value: details.opening || "Henüz belli değil" },
     { label: "Dükkan durumu", value: details.storeState },
     { label: "Alan", value: details.area === null ? "Henüz belli değil" : `${details.area} m²` },
     { label: "Mağaza modeli", value: details.model },
@@ -53,6 +58,7 @@ export function requestDetailRows(value: unknown): { label: string; value: strin
     { label: "Miktar", value: details.grams === null ? "Henüz belli değil" : `${details.grams} gram` },
   ];
   return [
+    { label: "Sorun / beklenti", value: details.issue || "Belirtilmedi" },
     { label: "Ürün", value: details.item },
     { label: "İstenen işlem", value: details.operation },
   ];

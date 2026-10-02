@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports -- Standalone CommonJS verification script. */
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
+const sharp = require('sharp');
 const fs = require('node:fs');
 const dotenv = require('dotenv');
 require('@next/env').loadEnvConfig(process.cwd(), true);
@@ -24,13 +25,20 @@ function cookieHeader() { return [...cookies].map(([key, value]) => `${key}=${va
   for (const type of ['NEW_BUSINESS','WHOLESALE','REPAIR']) {
     const details = type === 'NEW_BUSINESS' ? {kind:type,storeState:'Dükkanım var',area:55,model:'Modern',modules:['Vitrin ve tezgah','Montaj']} : type === 'WHOLESALE' ? {kind:type,products:['Küpe'],purity:'14 ayar',grams:250} : {kind:type,item:'Yüzük',operation:'Ölçü değişimi'};
     const notes = `${marker}\n${type === 'NEW_BUSINESS' ? '55 m² · Modern · Vitrin ve montaj' : type === 'WHOLESALE' ? 'Küpe · 14 ayar · 250 gram' : '14 ayar yüzük ölçü değişimi'}`;
-    const response = await fetch(`${base}/api/applications`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,sectorSlug:'kuyumcu',firstName:'Sistem',lastName:'Testi',phone:'05000000000',email:'',city:'Test',answers:[],notes,details,customerNote:marker,budget:"500.000 TL"})});
+    const photo=type==='REPAIR'?'data:image/jpeg;base64,'+(await sharp({create:{width:30,height:30,channels:3,background:'#d4af37'}}).jpeg().toBuffer()).toString('base64'):undefined;
+    const payload={requestKey:crypto.randomUUID(),type,sectorSlug:'kuyumcu',firstName:'Sistem',lastName:'Testi',phone:'05000000000',email:'',city:'Test',answers:[],notes,details,customerNote:marker,budget:'500.000 TL',photo};
+    const post=(body)=>fetch(`${base}/api/applications`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const response=await post(payload);
     assert.equal(response.status,201,`${type}: create failed`);
     const result=await response.json(); ids.push(result.id);
+    const retries=await Promise.all([post(payload),post(payload)]);for(const retry of retries){assert.equal(retry.status,200);assert.equal((await retry.json()).id,result.id);}
+    assert.equal(await db.application.count({where:{requestKey:payload.requestKey}}),1);
+    assert.equal((await post({...payload,budget:'Different'})).status,409);
     const saved=await db.application.findUniqueOrThrow({where:{id:result.id}});
     assert.equal(saved.type,type); assert.equal(saved.notes,notes); assert.deepEqual(saved.details,details); assert.equal(saved.customerNote,marker); assert.equal(saved.budget,"500.000 TL");
     console.log(`${type}: API create and database persistence PASS`);
   }
+  const photoDenied=await fetch(`${base}/api/applications/${ids[2]}/photo`);assert.equal(photoDenied.status,401);
   const denied=await fetch(`${base}/api/applications/${ids[0]}`); assert.equal(denied.status,401);
   const credentials=dotenv.parse(fs.readFileSync('.env.admin.local'));
   const csrfResponse=await fetch(`${base}/api/auth/csrf`);keepCookies(csrfResponse);
@@ -45,6 +53,14 @@ function cookieHeader() { return [...cookies].map(([key, value]) => `${key}=${va
   const panel=await fetch(`${base}/panel/basvurular/${ids[0]}`,{headers:{Cookie:cookieHeader()}}); assert.equal(panel.status,200); const html=await panel.text(); assert(html.includes('Müşterinin seçimleri')); assert(html.includes(marker)); assert(html.includes('500.000 TL'));
   const inbox=await fetch(`${base}/panel/basvurular?q=Sistem&type=NEW_BUSINESS&status=IN_PROGRESS`,{headers:{Cookie:cookieHeader()}});const inboxHtml=await inbox.text();assert.equal(inbox.status,200);assert(inboxHtml.includes(ids[0]));assert(!inboxHtml.includes(ids[1]));assert(inboxHtml.includes('500.000 TL'));
   const malformed=await fetch(`${base}/api/applications`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'REPAIR',sectorSlug:'kuyumcu',firstName:'Test',lastName:'Test',phone:'05000000000',answers:[],budget:'x'.repeat(101)})});assert.equal(malformed.status,400);
+  const photo=await fetch(`${base}/api/applications/${ids[2]}/photo`,{headers:{Cookie:cookieHeader()}});assert.equal(photo.status,200);assert.equal(photo.headers.get('content-type'),'image/jpeg');assert((await photo.arrayBuffer()).byteLength>0);
+  const patch=body=>fetch(`${base}/api/applications/${ids[0]}`,{method:'PATCH',headers:{Cookie:cookieHeader(),'Content-Type':'application/json'},body:JSON.stringify(body)});
+  assert.equal((await patch({status:'QUOTED'})).status,400);
+  assert.equal((await patch({status:'INVALID'})).status,400);
+  assert.equal((await patch({nextContactDate:'2026-02-30'})).status,400);
+  assert.equal((await patch({status:'QUOTED',quoteAmount:125000.50,quoteScope:'Tezgah ve montaj',quoteValidUntil:'2026-12-31',nextContactDate:'2026-11-01'})).status,200);
+  const quote=await db.application.findUniqueOrThrow({where:{id:ids[0]}});assert.equal(Number(quote.quoteAmount),125000.50);assert.equal(quote.budget,'500.000 TL');assert.equal(quote.status,'QUOTED');
+  console.log('Deduplication, private photo, quote validation, follow-up dates and independent customer budget PASS');
   console.log('Administrator login, request listing, status update and anonymous access denial PASS');
 })().catch(e=>{console.error(e.name,e.message);process.exitCode=1;}).finally(async()=>{
   if(ids.length) { const removed=await db.application.deleteMany({where:{id:{in:ids},customerNote:marker}}); console.log(`${removed.count} test-only records removed`); }

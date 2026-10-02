@@ -2,13 +2,8 @@ import { prisma } from "@/lib/db";
 import type { Prisma } from "@prisma/client";
 import Link from "next/link";
 import { ArrowUpRight, Inbox, Search } from "lucide-react";
-const statuses: Record<string, string> = {
-  NEW: "Yeni",
-  IN_PROGRESS: "İşlemde",
-  CONTACTED: "Görüşüldü",
-  COMPLETED: "Tamamlandı",
-  CANCELLED: "İptal",
-};
+import { requestStatuses } from "@/lib/request-status";
+const statuses: Record<string,string> = requestStatuses;
 const services: Record<string, string> = {
   NEW_BUSINESS: "Mağaza kurulumu",
   WHOLESALE: "Toptan altın",
@@ -73,6 +68,8 @@ export default async function ApplicationsPage({
       type: true,
       status: true,
       budget: true,
+      nextContactDate: true,
+      quoteAmount: true,
       createdAt: true,
     },
   });
@@ -177,6 +174,7 @@ export default async function ApplicationsPage({
                 <span>Bütçe: {app.budget || "Belirtilmedi"}</span>
               </div>
               <div className="inbox-state">
+                {app.nextContactDate && <small>Görüşme: {app.nextContactDate.split("-").reverse().join(".")}</small>}
                 <span
                   className={`request-status status-${app.status.toLowerCase()}`}
                 >

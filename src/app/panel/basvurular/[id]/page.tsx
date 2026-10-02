@@ -7,14 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ApplicationActions } from "./ApplicationActions";
 
-const statusLabels: Record<string, string> = {
-  NEW: "Yeni",
-  IN_PROGRESS: "İşlemde",
-  CONTACTED: "İletişime Geçildi",
-  COMPLETED: "Tamamlandı",
-  CANCELLED: "İptal",
-};
-
+import { requestStatuses as statusLabels } from "@/lib/request-status";
 const statusColors: Record<string, string> = {
   NEW: "bg-amber-100 text-amber-700",
   IN_PROGRESS: "bg-blue-100 text-blue-700",
@@ -33,6 +26,7 @@ export default async function ApplicationDetailPage({
   const application = await prisma.application.findUnique({
     where: { id },
     include: {
+      photo: { select: { applicationId: true } },
       answers: { include: { question: true } },
       package: { include: { items: { include: { service: true } } } },
       assignedTo: { select: { id: true, name: true } },
@@ -81,7 +75,7 @@ export default async function ApplicationDetailPage({
           className={statusColors[application.status] || ""}
           variant="secondary"
         >
-          {statusLabels[application.status] || application.status}
+          {(statusLabels as Record<string,string>)[application.status] || application.status}
         </Badge>
       </div>
 
@@ -122,6 +116,7 @@ export default async function ApplicationDetailPage({
           currentStatus={application.status}
           currentNotes={application.notes || ""}
           currentAssignedToId={application.assignedToId || ""}
+          quote={{amount:application.quoteAmount?Number(application.quoteAmount):null,scope:application.quoteScope||"",validUntil:application.quoteValidUntil||"",nextContact:application.nextContactDate||""}}
           users={users}
         />
       </div>
@@ -154,6 +149,7 @@ export default async function ApplicationDetailPage({
           {application.budget || "Belirtilmedi"}
         </CardContent>
       </Card>
+      {application.photo && <Card><CardHeader><CardTitle className="text-base">Ürün fotoğrafı</CardTitle></CardHeader><CardContent><a href={`/api/applications/${application.id}/photo`} target="_blank" rel="noopener noreferrer" className="inline-flex border rounded-lg px-4 py-3 text-sm">Fotoğrafı görüntüle ↗</a><p className="text-xs text-muted-foreground mt-3">Yalnızca yetkili ekip erişebilir.</p></CardContent></Card>}
       {application.customerNote && (
         <Card>
           <CardHeader>

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Image from "next/image";
+import { RepairPhoto } from "./RepairPhoto";
 import { ServiceScene } from "./ServiceScene";
 import {
   ArrowLeft,
@@ -122,7 +123,13 @@ export function JewelryExperience({
 }) {
   const [paused, setPaused] = useState(false);
   const [kind, setKind] = useState<RequestKind | null>(initialKind);
-  const [step, setStep] = useState<0 | 1 | 2>(initialKind ? 1 : 0);
+  const [step, setStep] = useState<0 | 1 | 2 | 3>(initialKind ? 1 : 0);
+  const [location, setLocation] = useState("");
+  const [opening, setOpening] = useState("");
+  const [issue, setIssue] = useState("");
+  const [photo, setPhoto] = useState("");
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const requestIdentity = useRef<{ body: string; key: string } | null>(null);
   const [storeState, setStoreState] = useState("");
   const [area, setArea] = useState("");
   const [model, setModel] = useState("Birlikte seçelim");
@@ -155,6 +162,8 @@ export function JewelryExperience({
         ? {
             kind,
             storeState,
+            location,
+            opening,
             area: area.trim() ? Number(area) : null,
             model,
             modules,
@@ -166,13 +175,13 @@ export function JewelryExperience({
               purity,
               grams: grams.trim() ? Number(grams) : null,
             }
-          : { kind, item, operation };
+          : { kind, item, operation, issue };
     const result = requestDetailsSchema.safeParse(candidate);
     return result.success ? result.data : null;
   }
 
-  function go(next: 0 | 1 | 2) {
-    if (pending) return;
+  function go(next: 0 | 1 | 2 | 3) {
+    if (pending || photoBusy) return;
     setError("");
     setStep(next);
   }
@@ -185,6 +194,10 @@ export function JewelryExperience({
 
   function continueToContact(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (photoBusy) {
+      setError("Fotoğraf hazırlanıyor. Lütfen bekleyin.");
+      return;
+    }
     if (!details()) {
       setError(
         kind === "NEW_BUSINESS"
@@ -214,26 +227,37 @@ export function JewelryExperience({
       setError("Ad, soyad ve telefon bilgilerinizi kontrol edin.");
       return;
     }
+    if (step === 2) {
+      go(3);
+      return;
+    }
     submitting.current = true;
     setPending(true);
     setError("");
     try {
+      const content = JSON.stringify({
+        type: kind,
+        sectorSlug: "kuyumcu",
+        firstName: contact.firstName,
+        lastName: contact.lastName,
+        phone: contact.phone,
+        email: contact.email,
+        city: contact.city,
+        budget: contact.budget,
+        customerNote: contact.note,
+        details: selectedDetails,
+        photo: kind === "REPAIR" && photo ? photo : undefined,
+        answers: [],
+      });
+      if (!requestIdentity.current || requestIdentity.current.body !== content)
+        requestIdentity.current = { body: content, key: crypto.randomUUID() };
       const response = await fetch("/api/applications", {
         method: "POST",
-        signal: AbortSignal.timeout(20000),
+        signal: AbortSignal.timeout(30000),
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          type: kind,
-          sectorSlug: "kuyumcu",
-          firstName: contact.firstName,
-          lastName: contact.lastName,
-          phone: contact.phone,
-          email: contact.email,
-          city: contact.city,
-          budget: contact.budget,
-          customerNote: contact.note,
-          details: selectedDetails,
-          answers: [],
+          ...JSON.parse(content),
+          requestKey: requestIdentity.current.key,
         }),
       });
       if (!response.ok)
@@ -257,6 +281,12 @@ export function JewelryExperience({
   }
 
   function reset() {
+    setLocation("");
+    setOpening("");
+    setIssue("");
+    setPhoto("");
+    setPhotoBusy(false);
+    requestIdentity.current = null;
     setReceipt("");
     setKind(null);
     setStep(0);
@@ -282,7 +312,10 @@ export function JewelryExperience({
         <h1 ref={heading} tabIndex={-1}>
           Talebiniz bize ulaştı.
         </h1>
-        <p>Seçimlerinizi aldık. Sizinle iletişime geçeceğiz.</p>
+        <p>
+          Talebiniz kaydedildi. Ekibimiz inceleyip sizinle iletişime geçecek.
+          Fiyat ve süre, ihtiyaçlarınız netleştikten sonra paylaşılacak.
+        </p>
         <div className="success-request">
           <span>{active?.title}</span>
           <small>Talep no: {receipt}</small>
@@ -290,6 +323,82 @@ export function JewelryExperience({
         <Button onClick={reset} className="simple-primary">
           Ana sayfaya dön <ArrowRight size={18} />
         </Button>
+      </section>
+    );
+
+  if (step === 3)
+    return (
+      <section className="simple-flow review-page">
+        <button
+          className="simple-back"
+          disabled={pending}
+          onClick={() => go(2)}
+        >
+          <ArrowLeft size={17} />
+          Bilgileri düzenle
+        </button>
+        <span className="simple-kicker">SON ADIM · KONTROL</span>
+        <h1 ref={heading} tabIndex={-1}>
+          Her şey doğru mu?
+        </h1>
+        <p className="flow-subtitle">
+          Göndermeden önce talebinize son bir kez göz atın.
+        </p>
+        <div className="review-card">
+          <h2>{active?.title}</h2>
+          <dl>
+            {[
+              ...requestDetailRows(details()),
+              {
+                label: "Ad soyad",
+                value: `${contact.firstName} ${contact.lastName}`,
+              },
+              { label: "Telefon", value: contact.phone },
+              { label: "E-posta", value: contact.email || "Belirtilmedi" },
+              { label: "Şehir", value: contact.city || "Belirtilmedi" },
+              {
+                label: "Tahmini bütçe",
+                value: contact.budget || "Henüz belli değil",
+              },
+              { label: "Notunuz", value: contact.note || "Yok" },
+              {
+                label: "Fotoğraf",
+                value:
+                  kind === "REPAIR" && photo ? "1 fotoğraf eklendi" : "Yok",
+              },
+            ].map((row) => (
+              <div key={row.label}>
+                <dt>{row.label}</dt>
+                <dd>{row.value}</dd>
+              </div>
+            ))}
+          </dl>
+          <button
+            className="simple-back"
+            disabled={pending}
+            onClick={() => go(1)}
+          >
+            Seçimleri düzenle
+          </button>
+        </div>
+        <p className="simple-privacy">
+          Bu bir talep formudur. Kesin fiyat veya işlem onayı değildir.
+        </p>
+        <form onSubmit={submit}>
+          {error && (
+            <p className="simple-error" role="alert">
+              {error}
+            </p>
+          )}
+          <Button
+            className="simple-primary submit-request"
+            disabled={pending}
+            type="submit"
+          >
+            {pending ? "Gönderiliyor…" : "Talebimi gönder"}
+            <ArrowRight size={18} />
+          </Button>
+        </form>
       </section>
     );
 
@@ -366,16 +475,18 @@ export function JewelryExperience({
           <ArrowLeft size={17} /> Geri
         </button>
         <ol className="flow-progress" aria-label="Başvuru adımları">
-          {["İhtiyaç", "Detaylar", "İletişim"].map((label, index) => (
-            <li
-              key={label}
-              aria-current={step === index ? "step" : undefined}
-              className={index <= step ? "is-active" : ""}
-            >
-              <span>{index < step ? <Check size={12} /> : index + 1}</span>
-              {label}
-            </li>
-          ))}
+          {["İhtiyaç", "Detaylar", "İletişim", "Kontrol"].map(
+            (label, index) => (
+              <li
+                key={label}
+                aria-current={step === index ? "step" : undefined}
+                className={index <= step ? "is-active" : ""}
+              >
+                <span>{index < step ? <Check size={12} /> : index + 1}</span>
+                {label}
+              </li>
+            ),
+          )}
         </ol>
       </div>
       <div className="flow-layout">
@@ -426,6 +537,26 @@ export function JewelryExperience({
                       />
                       <span>m²</span>
                     </div>
+                  </label>
+                  <label className="simple-field">
+                    Dükkan konumu{" "}
+                    <span className="optional">(biliyorsanız)</span>
+                    <Input
+                      maxLength={150}
+                      value={location}
+                      onChange={(e) => setLocation(e.target.value)}
+                      placeholder="İlçe / semt veya henüz belli değil"
+                    />
+                  </label>
+                  <label className="simple-field">
+                    Hedef açılış zamanı{" "}
+                    <span className="optional">(biliyorsanız)</span>
+                    <Input
+                      maxLength={100}
+                      value={opening}
+                      onChange={(e) => setOpening(e.target.value)}
+                      placeholder="Örn. 3 ay içinde / henüz belli değil"
+                    />
                   </label>
                   <Choices
                     label="Hangi mağaza modeli?"
@@ -504,6 +635,22 @@ export function JewelryExperience({
                     selected={operation}
                     onChange={setOperation}
                   />
+                  <label className="simple-field">
+                    Sorunu veya istediğiniz değişikliği anlatın{" "}
+                    <span className="optional">(isteğe bağlı)</span>
+                    <textarea
+                      maxLength={1000}
+                      rows={3}
+                      value={issue}
+                      onChange={(e) => setIssue(e.target.value)}
+                      placeholder="Örn. Zincirin kilidi kırıldı."
+                    />
+                  </label>
+                  <RepairPhoto
+                    value={photo}
+                    onChange={setPhoto}
+                    onBusy={setPhotoBusy}
+                  />
                 </>
               )}
               {error && (
@@ -512,7 +659,11 @@ export function JewelryExperience({
                 </p>
               )}
               <div className="flow-actions">
-                <Button type="submit" className="simple-primary">
+                <Button
+                  type="submit"
+                  disabled={photoBusy}
+                  className="simple-primary"
+                >
                   Devam et <ArrowRight size={18} />
                 </Button>
                 <span>Sonraki adım: iletişim</span>
@@ -645,7 +796,7 @@ export function JewelryExperience({
                     </>
                   ) : (
                     <>
-                      Talebimi gönder <ArrowRight size={18} />
+                      Özeti kontrol et <ArrowRight size={18} />
                     </>
                   )}
                 </Button>

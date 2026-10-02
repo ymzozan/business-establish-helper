@@ -231,7 +231,7 @@
 }
 .simple-kicker {
   font-size: 12px;
-  color: #839086;
+  color: #626f66;
   display: block;
   margin-bottom: 12px;
 }
@@ -243,7 +243,7 @@
 }
 .simple-intro p {
   font-size: 15px;
-  color: #7b857f;
+  color: #626e67;
   margin-top: 14px;
 }
 .gold-scene {
@@ -323,7 +323,7 @@
   min-height: 152px;
 }
 .service-hint {
-  color: #7d897f;
+  color: #647168;
   font-size: 12px;
 }
 .service-copy h2 {
@@ -1579,4 +1579,148 @@
   .request-actions textarea {
     font-size: 16px;
   }
+}
+.review-page {
+  max-width: 710px;
+}
+.review-page > .simple-kicker {
+  margin-top: 25px;
+}
+.review-page h1 {
+  font-size: 32px;
+  letter-spacing: -1px;
+}
+.review-card {
+  padding: 26px;
+  border: 1px solid #dde5df;
+  border-radius: 16px;
+}
+.review-card h2 {
+  font-size: 18px;
+  margin-bottom: 20px;
+}
+.review-card dl > div {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 20px;
+  padding: 12px 0;
+  border-bottom: 1px solid #edf0eb;
+  font-size: 13px;
+}
+.review-card dt {
+  color: #7c897d;
+}
+.review-card dd {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.review-page form {
+  margin-top: 22px;
+}
+.repair-upload small {
+  display: block;
+  color: #819080;
+  font-size: 11px;
+  line-height: 1.7;
+  margin-top: 10px;
+}
+.repair-upload input {
+  display: block;
+  width: 100%;
+  height: auto;
+  font-size: 13px;
+  padding: 12px 0;
+}
+.repair-preview {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.repair-preview img {
+  width: 110px;
+  height: 100px;
+  object-fit: contain;
+  background: #f3f5ef;
+  border-radius: 10px;
+}
+.repair-preview button {
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.request-actions input {
+  display: block;
+  width: 100%;
+  border: 1px solid #dee6d8;
+  border-radius: 10px;
+  min-height: 44px;
+  margin-top: 9px;
+  padding: 10px;
+  background: white;
+  font-size: 14px;
+  font-weight: 400;
+}
+.quote-editor {
+  margin-bottom: 20px;
+}
+.quote-editor > summary {
+  font-size: 14px;
+  font-weight: 500;
+}
+.status-quoted {
+  background: #eeeafa;
+  color: #765f96;
+}
+.status-approved {
+  background: #e6f3e4;
+  color: #427746;
+}
+@media (max-width: 700px) {
+  .flow-progress {
+    gap: 6px;
+    font-size: 9px;
+  }
+  .flow-progress li > span {
+    width: 17px;
+    height: 17px;
+    font-size: 9px;
+  }
+  .review-card {
+    padding: 18px;
+  }
+  .review-card dl > div {
+    grid-template-columns: 100px 1fr;
+    gap: 10px;
+  }
+  .request-actions input {
+    font-size: 16px;
+  }
+}
+
+/* Quiet surfaces and clear focus, inspired by the Apple and Cal.com references. */
+.simple-public {
+  background: #fcfcfa;
+}
+.service-choice {
+  box-shadow: 0 3px 14px #233b2c04;
+}
+.service-choice:focus-visible,
+.simple-public button:focus-visible,
+.simple-public a:focus-visible {
+  outline: 3px solid #567f69;
+  outline-offset: 5px;
+}
+.review-card {
+  background: #fff;
+  box-shadow: 0 12px 35px #25383005;
+}
+.review-card dt {
+  color: #606f65;
+}
+.repair-upload small {
+  color: #637367;
+}
+.review-page h1 {
+  line-height: 1.25;
 }

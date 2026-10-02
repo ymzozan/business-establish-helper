@@ -74,6 +74,13 @@ model Application {
   details      Json?
   customerNote String?
   budget       String?
+  requestKey   String?  @unique
+  requestHash  String?
+  quoteAmount  Decimal? @db.Decimal(14, 2)
+  quoteScope   String?
+  quoteValidUntil String?
+  nextContactDate String?
+  photo        ApplicationPhoto?
   notes        String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -104,4 +111,10 @@ model PackageItem {
   package   Package @relation(fields: [packageId], references: [id])
   serviceId String
   service   Service @relation(fields: [serviceId], references: [id])
+}
+
+model ApplicationPhoto {
+  applicationId String @id
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  data Bytes
 }

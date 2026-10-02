@@ -4,18 +4,19 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-const statuses = [
-  ["NEW", "Yeni"],
-  ["IN_PROGRESS", "İşlemde"],
-  ["CONTACTED", "Görüşüldü"],
-  ["COMPLETED", "Tamamlandı"],
-  ["CANCELLED", "İptal"],
-];
+import { requestStatuses } from "@/lib/request-status";
+const statuses = Object.entries(requestStatuses);
 interface Props {
   applicationId: string;
   currentStatus: string;
   currentNotes: string;
   currentAssignedToId: string;
+  quote: {
+    amount: number | null;
+    scope: string;
+    validUntil: string;
+    nextContact: string;
+  };
   users: { id: string; name: string; role: string }[];
 }
 export function ApplicationActions({
@@ -24,7 +25,12 @@ export function ApplicationActions({
   currentNotes,
   currentAssignedToId,
   users,
+  quote,
 }: Props) {
+  const [amount, setAmount] = useState(quote.amount?.toString() || "");
+  const [scope, setScope] = useState(quote.scope);
+  const [validUntil, setValidUntil] = useState(quote.validUntil);
+  const [nextContact, setNextContact] = useState(quote.nextContact);
   const router = useRouter();
   const [status, setStatus] = useState(currentStatus);
   const [notes, setNotes] = useState(currentNotes);
@@ -47,14 +53,23 @@ export function ApplicationActions({
           status,
           notes,
           assignedToId: assignedToId || null,
+          quoteAmount: amount ? Number(amount) : null,
+          quoteScope: scope || null,
+          quoteValidUntil: validUntil || null,
+          nextContactDate: nextContact || null,
         }),
       });
-      if (!response.ok) throw Error();
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw Error(body.error || "Kaydedilemedi. Tekrar deneyin.");
+      }
       toast.success("Talep güncellendi");
       router.refresh();
-    } catch {
+    } catch (cause) {
       setError(
-        "Kaydedilemedi. Değişiklikleriniz burada duruyor; tekrar deneyin.",
+        cause instanceof Error
+          ? cause.message
+          : "Kaydedilemedi. Tekrar deneyin.",
       );
     } finally {
       locked.current = false;
@@ -82,6 +97,51 @@ export function ApplicationActions({
                 ))}
               </select>
             </label>
+            <label>
+              Sonraki görüşme tarihi
+              <input
+                type="date"
+                value={nextContact}
+                onChange={(e) => setNextContact(e.target.value)}
+              />
+            </label>
+            <details open={Boolean(quote.amount)} className="quote-editor">
+              <summary>Teklif bilgileri</summary>
+              <label>
+                Teklif tutarı (TL)
+                <input
+                  type="number"
+                  min="0.01"
+                  max="999999999999"
+                  step="0.01"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder="Müşteri bütçesinden ayrı teklif tutarınız"
+                />
+              </label>
+              <label>
+                Teklif kapsamı
+                <textarea
+                  rows={3}
+                  maxLength={5000}
+                  value={scope}
+                  onChange={(e) => setScope(e.target.value)}
+                  placeholder="Dahil olan işler, ürünler ve koşullar"
+                />
+              </label>
+              <label>
+                Geçerlilik tarihi
+                <input
+                  type="date"
+                  value={validUntil}
+                  onChange={(e) => setValidUntil(e.target.value)}
+                />
+              </label>
+              <p className="simple-privacy">
+                Teklifi müşteriye ilettikten sonra “Teklif gönderildi” durumunu
+                seçin.
+              </p>
+            </details>
             <label>
               Ekip notu
               <textarea
