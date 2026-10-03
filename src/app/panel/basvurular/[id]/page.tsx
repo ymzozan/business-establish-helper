@@ -1,3 +1,6 @@
+import { auth } from "@/lib/auth";
+import { getSettings, emailReady } from "@/lib/site-settings";
+import { NotificationAction } from "./NotificationAction";
 import { requestDetailRows } from "@/lib/request-details";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
@@ -26,6 +29,7 @@ export default async function ApplicationDetailPage({
   const application = await prisma.application.findUnique({
     where: { id },
     include: {
+      notification: true,
       photo: { select: { applicationId: true } },
       answers: { include: { question: true } },
       package: { include: { items: { include: { service: true } } } },
@@ -35,6 +39,8 @@ export default async function ApplicationDetailPage({
 
   if (!application) notFound();
 
+  const settings = await getSettings();
+  const isAdmin = (await auth())?.user?.role === "ADMIN";
   const users = await prisma.user.findMany({
     select: { id: true, name: true, role: true },
   });
@@ -75,7 +81,8 @@ export default async function ApplicationDetailPage({
           className={statusColors[application.status] || ""}
           variant="secondary"
         >
-          {(statusLabels as Record<string,string>)[application.status] || application.status}
+          {(statusLabels as Record<string, string>)[application.status] ||
+            application.status}
         </Badge>
       </div>
 
@@ -116,7 +123,14 @@ export default async function ApplicationDetailPage({
           currentStatus={application.status}
           currentNotes={application.notes || ""}
           currentAssignedToId={application.assignedToId || ""}
-          quote={{amount:application.quoteAmount?Number(application.quoteAmount):null,scope:application.quoteScope||"",validUntil:application.quoteValidUntil||"",nextContact:application.nextContactDate||""}}
+          quote={{
+            amount: application.quoteAmount
+              ? Number(application.quoteAmount)
+              : null,
+            scope: application.quoteScope || "",
+            validUntil: application.quoteValidUntil || "",
+            nextContact: application.nextContactDate || "",
+          }}
           users={users}
         />
       </div>
@@ -149,7 +163,26 @@ export default async function ApplicationDetailPage({
           {application.budget || "Belirtilmedi"}
         </CardContent>
       </Card>
-      {application.photo && <Card><CardHeader><CardTitle className="text-base">Ürün fotoğrafı</CardTitle></CardHeader><CardContent><a href={`/api/applications/${application.id}/photo`} target="_blank" rel="noopener noreferrer" className="inline-flex border rounded-lg px-4 py-3 text-sm">Fotoğrafı görüntüle ↗</a><p className="text-xs text-muted-foreground mt-3">Yalnızca yetkili ekip erişebilir.</p></CardContent></Card>}
+      {application.photo && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Ürün fotoğrafı</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <a
+              href={`/api/applications/${application.id}/photo`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex border rounded-lg px-4 py-3 text-sm"
+            >
+              Fotoğrafı görüntüle ↗
+            </a>
+            <p className="text-xs text-muted-foreground mt-3">
+              Yalnızca yetkili ekip erişebilir.
+            </p>
+          </CardContent>
+        </Card>
+      )}
       {application.customerNote && (
         <Card>
           <CardHeader>
@@ -185,6 +218,54 @@ export default async function ApplicationDetailPage({
         </Card>
       )}
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Teklif belgesi</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {application.quoteAmount &&
+          application.quoteScope &&
+          application.quoteValidUntil ? (
+            <a
+              className="management-button"
+              href={`/api/applications/${id}/quote`}
+            >
+              PDF teklifi indir
+            </a>
+          ) : (
+            <p className="text-sm">
+              PDF için teklif tutarı, kapsamı ve geçerlilik tarihini kaydedin.
+            </p>
+          )}
+          <p className="text-sm text-gray-500 mt-3">
+            PDF indirmek müşteriye gönderim yapmaz. Teklifi kontrol ederek
+            kendiniz paylaşabilirsiniz.
+          </p>
+        </CardContent>
+      </Card>
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle>E-posta bildirimi</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm mb-3">
+              {!settings.notificationEnabled || !emailReady()
+                ? "Gönderim kapalı — firma ve site ayarlarından bağlantıyı tamamlayın."
+                : application.notification?.status === "SENT"
+                  ? "Yeni talep bildirimi gönderildi."
+                  : application.notification?.status === "FAILED"
+                    ? "Gönderim başarısız. Tekrar deneyebilirsiniz."
+                    : "Bildirim henüz gönderilmedi."}
+            </p>
+            {settings.notificationEnabled &&
+              emailReady() &&
+              application.notification?.status !== "SENT" && (
+                <NotificationAction id={id} />
+              )}
+          </CardContent>
+        </Card>
+      )}
       {/* Package */}
       {application.package && (
         <Card>

@@ -801,7 +801,15 @@ export function JewelryExperience({
                   )}
                 </Button>
                 <p className="simple-privacy">
-                  Bilgileriniz yalnızca talebinize dönüş yapmak için kullanılır.
+                  Bilgileriniz talebinizi değerlendirmek ve size dönüş yapmak
+                  için kullanılır.{" "}
+                  <a href="/kvkk" target="_blank" rel="noopener noreferrer">
+                    KVKK aydınlatma
+                  </a>{" "}
+                  ·{" "}
+                  <a href="/gizlilik" target="_blank" rel="noopener noreferrer">
+                    Gizlilik
+                  </a>
                 </p>
               </fieldset>
             </form>

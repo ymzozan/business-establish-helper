@@ -1,74 +1,37 @@
 import { requireStaff } from "@/lib/api-access";
 import { NextRequest, NextResponse } from "next/server";
-
-// Email notification via Resend
-async function sendEmail(to: string, subject: string, html: string) {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey || apiKey.startsWith("re_your")) {
-    console.log("[Email] Skipping - API key not configured");
-    return null;
-  }
-
-  const { Resend } = await import("resend");
-  const resend = new Resend(apiKey);
-
-  const result = await resend.emails.send({
-    from: "Kuyumcu Otomasyon <onboarding@resend.dev>",
-    to,
-    subject,
-    html,
-  });
-
-  return result;
-}
-
-export async function POST(request: NextRequest) {
-  const denied = await requireStaff();
+import { prisma } from "@/lib/db";
+import { notifyRequest } from "@/lib/request-notification";
+import { getSettings, emailReady } from "@/lib/site-settings";
+export async function POST(req: NextRequest) {
+  const denied = await requireStaff(true);
   if (denied) return denied;
-
-  try {
-    const { type, applicationId, to, data } = await request.json();
-
-    switch (type) {
-      case "application_received": {
-        // Send confirmation to applicant
-        await sendEmail(
-          to,
-          "Başvurunuz Alındı - Kuyumcu Otomasyon",
-          `
-          <h2>Başvurunuz başarıyla alındı!</h2>
-          <p>Sayın ${data.firstName} ${data.lastName},</p>
-          <p>Başvurunuz tarafımıza ulaşmıştır. En kısa sürede sizinle iletişime geçeceğiz.</p>
-          <p><strong>Başvuru No:</strong> ${applicationId}</p>
-          <br>
-          <p>Kuyumcu Otomasyon Ekibi</p>
-          `
-        );
-        break;
-      }
-      case "status_update": {
-        await sendEmail(
-          to,
-          "Başvuru Durumu Güncellendi - Kuyumcu Otomasyon",
-          `
-          <h2>Başvuru durumunuz güncellendi</h2>
-          <p>Sayın ${data.firstName} ${data.lastName},</p>
-          <p>Başvurunuzun durumu <strong>${data.newStatus}</strong> olarak güncellenmiştir.</p>
-          <p><strong>Başvuru No:</strong> ${applicationId}</p>
-          <br>
-          <p>Kuyumcu Otomasyon Ekibi</p>
-          `
-        );
-        break;
-      }
-    }
-
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Notification error:", error);
+  const body = await req.json().catch(() => null);
+  if (typeof body?.applicationId !== "string")
+    return NextResponse.json({ error: "Talep seçilmedi." }, { status: 400 });
+  const app = await prisma.application.findUnique({
+    where: { id: body.applicationId },
+    select: { id: true },
+  });
+  if (!app)
+    return NextResponse.json({ error: "Talep bulunamadı." }, { status: 404 });
+  const s = await getSettings();
+  if (!s.notificationEnabled || !emailReady())
     return NextResponse.json(
-      { error: "Notification failed" },
-      { status: 500 }
+      { error: "Bildirim ayarlarını tamamlayın." },
+      { status: 409 },
     );
-  }
+  await prisma.requestNotification.upsert({
+    where: { applicationId: app.id },
+    create: { applicationId: app.id },
+    update: {},
+  });
+  await notifyRequest(app.id);
+  const result = await prisma.requestNotification.findUnique({
+    where: { applicationId: app.id },
+  });
+  return NextResponse.json(
+    { status: result?.status },
+    { status: result?.status === "SENT" ? 200 : 503 },
+  );
 }

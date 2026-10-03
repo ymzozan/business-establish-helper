@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import sharp from "sharp";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
+import { notifyRequest } from "@/lib/request-notification";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 import { requireStaff } from "@/lib/api-access";
@@ -117,6 +118,7 @@ export async function POST(request: NextRequest) {
         data: {
           requestKey,
           requestHash,
+          notification: { create: {} },
           photo: photoData
             ? { create: { data: new Uint8Array(photoData) } }
             : undefined,
@@ -143,6 +145,13 @@ export async function POST(request: NextRequest) {
         },
       });
 
+      after(async () => {
+        try {
+          await notifyRequest(application.id);
+        } catch {
+          console.error("Notification processing failed");
+        }
+      });
       return NextResponse.json({ id: application.id }, { status: 201 });
     } catch (error) {
       if (

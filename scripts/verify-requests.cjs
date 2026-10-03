@@ -10,6 +10,7 @@ const db = new PrismaClient();
 const base = 'http://127.0.0.1:3000';
 const marker = `verification-${crypto.randomUUID()}`;
 const ids = [];
+const blogSlug = marker;
 const cookies = new Map();
 function keepCookies(response) {
   for (const value of response.headers.getSetCookie()) {
@@ -60,9 +61,33 @@ function cookieHeader() { return [...cookies].map(([key, value]) => `${key}=${va
   assert.equal((await patch({nextContactDate:'2026-02-30'})).status,400);
   assert.equal((await patch({status:'QUOTED',quoteAmount:125000.50,quoteScope:'Tezgah ve montaj',quoteValidUntil:'2026-12-31',nextContactDate:'2026-11-01'})).status,200);
   const quote=await db.application.findUniqueOrThrow({where:{id:ids[0]}});assert.equal(Number(quote.quoteAmount),125000.50);assert.equal(quote.budget,'500.000 TL');assert.equal(quote.status,'QUOTED');
+  const pdfResponse=await fetch(`${base}/api/applications/${ids[0]}/quote`,{headers:{Cookie:cookieHeader()}});assert.equal(pdfResponse.status,200);assert.equal(pdfResponse.headers.get('content-type'),'application/pdf');const pdfBytes=Buffer.from(await pdfResponse.arrayBuffer());assert.equal(pdfBytes.subarray(0,4).toString(),'%PDF');fs.writeFileSync('/private/tmp/kuyumcu-teklif-kontrol.pdf',pdfBytes);
+  assert.equal((await fetch(`${base}/api/applications/${ids[0]}/quote`)).status,401);
+  assert.equal((await fetch(`${base}/api/settings`,{method:'PUT',headers:{'Content-Type':'application/json'},body:'{}'})).status,401);
+  const blogBody={title:'Türkçe test: ölçü ve işçilik',description:'Doğrulama için oluşturulan örnek içerik.',category:'TEST',service:'tamirat',body:'Yalnızca doğrulama için hazırlanan yazı. İğne, ölçü, ışıltı.',published:false};
+  const putBlog=body=>fetch(`${base}/api/blog/${blogSlug}`,{method:'PUT',headers:{Cookie:cookieHeader(),'Content-Type':'application/json'},body:JSON.stringify(body)});
+  assert.equal((await putBlog(blogBody)).status,200);
+  assert.equal((await fetch(`${base}/blog/${blogSlug}`)).status,404);
+  assert.equal((await putBlog({...blogBody,published:true})).status,200);
+  const article=await fetch(`${base}/blog/${blogSlug}`);assert.equal(article.status,200);assert((await article.text()).includes(blogBody.title));
+  assert.equal((await putBlog(blogBody)).status,200);assert.equal((await fetch(`${base}/blog/${blogSlug}`)).status,404);
+  assert.equal((await fetch(`${base}/panel/ayarlar`,{headers:{Cookie:cookieHeader()}})).status,200);
+  assert.equal((await fetch(`${base}/panel/blog`,{headers:{Cookie:cookieHeader()}})).status,200);
+  assert(await db.requestNotification.findUnique({where:{applicationId:ids[0]}}));
+  const existingSettings=await db.siteSettings.findUnique({where:{id:'main'}});
+  const settings=existingSettings||{id:'main',companyName:'Kuyumcu Merkezi',legalName:'Örnek Kuyumculuk Ltd. Şti. (örnek bilgi)',phone:'',address:'İstanbul, Türkiye (örnek adres)',email:'iletisim@example.com',demo:true,notificationEmail:'',notificationEnabled:false,privacyText:'',disclosureText:'',legalPublished:false};
+  const {id:settingsId,updatedAt:settingsUpdated,...settingsBody}=settings;void settingsId;void settingsUpdated;
+  const putSettings=body=>fetch(`${base}/api/settings`,{method:'PUT',headers:{Cookie:cookieHeader(),'Content-Type':'application/json'},body:JSON.stringify(body)});
+  assert.equal((await putSettings(settingsBody)).status,200);
+  assert.equal((await putSettings({...settingsBody,demo:true,legalPublished:true})).status,400);
+  assert.equal((await putSettings({...settingsBody,notificationEnabled:true,notificationEmail:'test@example.com'})).status,400);
+  const contact=await fetch(`${base}/iletisim`);assert((await contact.text()).includes(settingsBody.companyName));
+  console.log('Settings persistence and incomplete legal/email publication guards PASS');
+  console.log('PDF download, access controls, blog draft/publish/unpublish and notification queue PASS');
   console.log('Deduplication, private photo, quote validation, follow-up dates and independent customer budget PASS');
   console.log('Administrator login, request listing, status update and anonymous access denial PASS');
 })().catch(e=>{console.error(e.name,e.message);process.exitCode=1;}).finally(async()=>{
   if(ids.length) { const removed=await db.application.deleteMany({where:{id:{in:ids},customerNote:marker}}); console.log(`${removed.count} test-only records removed`); }
+  await db.blogPost.deleteMany({where:{slug:blogSlug}});
   await db.$disconnect();
 });

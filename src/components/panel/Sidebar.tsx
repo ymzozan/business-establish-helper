@@ -30,7 +30,8 @@ export function Sidebar({ userRole }: { userRole: string }) {
               Yönetim
             </summary>
             <Link href="/panel/kullanicilar">Kullanıcılar</Link>
-            <Link href="/panel/ayarlar">Ayarlar</Link>
+            <Link href="/panel/ayarlar">Firma ve site ayarları</Link>
+            <Link href="/panel/blog">Blog yönetimi</Link>
             <Link href="/panel/hizmetler">Hizmetler</Link>
             <Link href="/panel/sorular">Sorular</Link>
           </details>

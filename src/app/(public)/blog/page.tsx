@@ -1,8 +1,10 @@
 import Image from "next/image";
 import Link from "next/link";
-import { blogPosts } from "@/lib/blog-posts";
+import { getBlogPosts } from "@/lib/blog-content";
 export const metadata = { title: "Blog & Rehberler | Kuyumcu Merkezi" };
-export default function BlogPage() {
+export const dynamic = "force-dynamic";
+export default async function BlogPage() {
+  const blogPosts = await getBlogPosts();
   return (
     <section className="editorial-page">
       <span className="simple-kicker">BLOG & REHBERLER</span>

@@ -31,6 +31,8 @@ export function Footer() {
           <h2>Kuyumcu Merkezi</h2>
           <Link href="/hakkimizda">Hakkımızda</Link>
           <Link href="/blog">Blog & rehberler</Link>
+          <Link href="/gizlilik">Gizlilik</Link>
+          <Link href="/kvkk">KVKK aydınlatma</Link>
           <Link href="/iletisim">
             İletişim <ArrowUpRight size={12} />
           </Link>

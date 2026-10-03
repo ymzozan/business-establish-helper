@@ -80,6 +80,7 @@ model Application {
   quoteScope   String?
   quoteValidUntil String?
   nextContactDate String?
+  notification RequestNotification?
   photo        ApplicationPhoto?
   notes        String?
   createdAt    DateTime @default(now())
@@ -117,4 +118,40 @@ model ApplicationPhoto {
   applicationId String @id
   application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
   data Bytes
+}
+
+model SiteSettings {
+  id String @id @default("main")
+  companyName String @default("Kuyumcu Merkezi")
+  legalName String @default("Örnek Kuyumculuk Ltd. Şti. (örnek bilgi)")
+  phone String @default("")
+  address String @default("İstanbul, Türkiye (örnek adres)")
+  email String @default("iletisim@example.com")
+  demo Boolean @default(true)
+  notificationEmail String @default("")
+  notificationEnabled Boolean @default(false)
+  privacyText String @default("")
+  disclosureText String @default("")
+  legalPublished Boolean @default(false)
+  updatedAt DateTime @updatedAt
+}
+
+model BlogPost {
+  slug String @id
+  title String
+  description String
+  category String
+  service String
+  body String
+  published Boolean @default(false)
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
+model RequestNotification {
+  applicationId String @id
+  application Application @relation(fields:[applicationId], references:[id], onDelete:Cascade)
+  status String @default("PENDING")
+  attemptedAt DateTime?
+  sentAt DateTime?
 }
