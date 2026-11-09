@@ -1,7 +1,9 @@
+import { requireStaffPage } from "@/lib/api-access";
 import { prisma } from "@/lib/db";
 import { ServicesManager } from "./ServicesManager";
 
 export default async function ServicesPage() {
+  await requireStaffPage(true);
   const services = await prisma.service.findMany({
     orderBy: { createdAt: "desc" },
     include: { sector: { select: { name: true, slug: true } } },

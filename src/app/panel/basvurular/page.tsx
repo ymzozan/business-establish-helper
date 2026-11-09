@@ -1,3 +1,4 @@
+import { requireStaffPage } from "@/lib/api-access";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@prisma/client";
 import Link from "next/link";
@@ -20,6 +21,7 @@ export default async function ApplicationsPage({
     page?: string;
   }>;
 }) {
+  await requireStaffPage();
   const params = await searchParams;
   const q = typeof params.q === "string" ? params.q.trim().slice(0, 100) : "";
   const status =

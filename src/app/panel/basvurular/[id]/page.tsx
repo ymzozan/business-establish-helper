@@ -1,3 +1,4 @@
+import { requireStaffPage } from "@/lib/api-access";
 import { auth } from "@/lib/auth";
 import { getSettings, emailReady } from "@/lib/site-settings";
 import { NotificationAction } from "./NotificationAction";
@@ -24,6 +25,7 @@ export default async function ApplicationDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await requireStaffPage();
   const { id } = await params;
 
   const application = await prisma.application.findUnique({
