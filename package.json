@@ -49,6 +49,10 @@
     "prisma": "^6.19.3"
   },
   "overrides": {
-    "proxy-addr": "^2.0.8"
+    "proxy-addr": "^2.0.8",
+    "source-map-js": "1.2.2",
+    "@prisma/config": {
+      "deepmerge-ts": "8.0.2"
+    }
   }
 }
