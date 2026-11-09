@@ -1,7 +1,9 @@
+import { requireStaffPage } from "@/lib/api-access";
 import { prisma } from "@/lib/db";
 import { QuestionsManager } from "./QuestionsManager";
 
 export default async function QuestionsPage() {
+  await requireStaffPage(true);
   const questions = await prisma.question.findMany({
     orderBy: [{ appType: "asc" }, { order: "asc" }],
     include: { sector: { select: { name: true, slug: true } } },

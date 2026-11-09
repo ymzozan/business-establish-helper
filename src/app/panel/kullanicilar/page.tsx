@@ -1,7 +1,9 @@
+import { requireStaffPage } from "@/lib/api-access";
 import { prisma } from "@/lib/db";
 import { UsersManager } from "./UsersManager";
 
 export default async function UsersPage() {
+  await requireStaffPage(true);
   const users = await prisma.user.findMany({
     select: {
       id: true,

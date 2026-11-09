@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
 
 /** Guard API handlers before reading private records or changing configuration. */
@@ -12,4 +13,12 @@ export async function requireStaff(adminOnly = false) {
     return NextResponse.json({ error: "Bu işlem için yetkiniz yok." }, { status: 403 });
   }
   return null;
+}
+
+
+export async function requireStaffPage(adminOnly = false) {
+  const session = await auth();
+  if (!session?.user) redirect("/giris");
+  const allowed = adminOnly ? ["ADMIN"] : ["ADMIN", "SALES"];
+  if (!allowed.includes(session.user.role)) redirect(adminOnly ? "/panel" : "/");
 }

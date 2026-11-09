@@ -1,3 +1,4 @@
+import { receiptLifetime, receiptName, receiptSecret, signReceipt } from "@/lib/application-receipt";
 import { createHash } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import sharp from "sharp";
@@ -47,7 +48,21 @@ const applicationSchema = z
     path: ["details"],
   });
 
+function applicationReceipt(id: string, status: number, secret: string) {
+  const response = NextResponse.json({ id }, { status });
+  response.cookies.set(receiptName(id), signReceipt(id, secret), {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: receiptLifetime,
+  });
+  return response;
+}
+
 export async function POST(request: NextRequest) {
+  const secret = receiptSecret();
+  if (!secret) return NextResponse.json({ error: "Application service unavailable" }, { status: 503 });
   try {
     const text = await request.text();
     if (Buffer.byteLength(text) > 900000)
@@ -69,7 +84,7 @@ export async function POST(request: NextRequest) {
       });
       if (!previous) return null;
       return previous.requestHash === requestHash
-        ? NextResponse.json({ id: previous.id }, { status: 200 })
+        ? applicationReceipt(previous.id, 200, secret)
         : NextResponse.json(
             {
               error:
@@ -152,7 +167,7 @@ export async function POST(request: NextRequest) {
           console.error("Notification processing failed");
         }
       });
-      return NextResponse.json({ id: application.id }, { status: 201 });
+      return applicationReceipt(application.id, 201, secret);
     } catch (error) {
       if (
         requestKey &&
