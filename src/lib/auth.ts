@@ -1,7 +1,18 @@
+import { createHash } from "node:crypto";
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
+
+// Deny credentials exposed by earlier setup and seed scripts.
+const exposedPasswordDigests = new Set([
+  "6c89746c3a12494c17f0f82cbbf68926f088626a8a89139968d0b7956c3d3461",
+  "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9",
+]);
+
+function passwordVersion(hash: string) {
+  return createHash("sha256").update(hash).digest("hex");
+}
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
@@ -12,17 +23,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null;
+        if (typeof credentials?.email !== "string" || typeof credentials.password !== "string"
+            || Buffer.byteLength(credentials.password) > 72
+            || exposedPasswordDigests.has(passwordVersion(credentials.password))) return null;
 
         try {
           const user = await prisma.user.findUnique({
-            where: { email: credentials.email as string },
+            where: { email: credentials.email },
           });
 
           if (!user) return null;
 
           const isValid = await bcrypt.compare(
-            credentials.password as string,
+            credentials.password,
             user.password
           );
 
@@ -32,7 +45,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             id: user.id,
             name: user.name,
             email: user.email,
-            role: user.role,
           };
         } catch {
           // Database not available
@@ -43,10 +55,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
   callbacks: {
     async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id;
-        token.role = (user as { role: string }).role;
-      }
+      const id = user?.id ?? token.id;
+      if (typeof id !== "string") return null;
+
+      const current = await prisma.user.findUnique({
+        where: { id },
+        select: { password: true, role: true },
+      });
+      if (!current) return null;
+      const version = passwordVersion(current.password);
+      if (!user && token.passwordVersion !== version) return null;
+
+      token.id = id;
+      token.role = current.role;
+      token.passwordVersion = version;
       return token;
     },
     async session({ session, token }) {

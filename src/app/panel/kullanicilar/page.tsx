@@ -1,7 +1,9 @@
+import { requirePanelPage } from "@/lib/panel-access";
 import { prisma } from "@/lib/db";
 import { UsersManager } from "./UsersManager";
 
 export default async function UsersPage() {
+  await requirePanelPage(["ADMIN"]);
   const users = await prisma.user.findMany({
     select: {
       id: true,

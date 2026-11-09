@@ -1,3 +1,4 @@
+import { applicationScope, requirePanelPage } from "@/lib/panel-access";
 import { prisma } from "@/lib/db";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -29,7 +30,9 @@ const statusLabels: Record<string, string> = {
 };
 
 export default async function ApplicationsPage() {
+  const scope = applicationScope(await requirePanelPage());
   const applications = await prisma.application.findMany({
+    where: scope,
     orderBy: { createdAt: "desc" },
     include: {
       assignedTo: { select: { name: true } },

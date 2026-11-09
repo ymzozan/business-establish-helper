@@ -1,7 +1,9 @@
+import { requirePanelPage } from "@/lib/panel-access";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  await requirePanelPage(["ADMIN"]);
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Ayarlar</h1>

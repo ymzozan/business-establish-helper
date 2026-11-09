@@ -1,3 +1,5 @@
+import { cookies } from "next/headers";
+import { receiptName, validReceipt } from "@/lib/application-receipt";
 import { prisma } from "@/lib/db";
 import { PackageResult } from "@/components/wizard/PackageResult";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,7 +14,7 @@ export default async function ResultPage({
 }) {
   const { id } = await searchParams;
 
-  if (!id) {
+  if (!id || !/^c[a-z0-9]{24}$/.test(id) || !validReceipt(id, (await cookies()).get(receiptName(id))?.value)) {
     return (
       <div className="container mx-auto px-4 py-20 text-center">
         <p className="text-muted-foreground">Başvuru bulunamadı.</p>

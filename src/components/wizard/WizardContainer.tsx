@@ -100,12 +100,6 @@ export function WizardContainer({ sectorSlug, appType }: WizardContainerProps) {
 
       const application = await res.json();
 
-      await fetch("/api/packages/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ applicationId: application.id }),
-      });
-
       router.push(`/basvuru/${sectorSlug}/sonuc?id=${application.id}`);
     } catch {
       alert("Bir hata oluştu. Lütfen tekrar deneyin.");

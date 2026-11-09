@@ -1,7 +1,10 @@
+import { checkPanelApi, staffRoles } from "@/lib/panel-access";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
 export async function GET() {
+  const access = await checkPanelApi(staffRoles);
+  if (access.error) return access.error;
   const services = await prisma.service.findMany({
     orderBy: { createdAt: "desc" },
     include: { sector: { select: { name: true } } },
@@ -16,6 +19,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const access = await checkPanelApi(staffRoles);
+  if (access.error) return access.error;
   try {
     const body = await request.json();
     const sector = await prisma.sector.findUnique({
