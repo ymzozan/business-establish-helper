@@ -48,7 +48,9 @@ npm run db:seed        # seed reference data
 npm run dev            # http://localhost:3000
 ```
 
-A `DATABASE_URL` and the NextAuth / Resend environment variables are required (see `.env.example` if present).
+Set `DATABASE_URL`, `DIRECT_URL`, and a randomly generated `AUTH_SECRET`. For a new database, pass `BOOTSTRAP_ADMIN_EMAIL` and `BOOTSTRAP_ADMIN_PASSWORD` to `npm run db:seed` through your secret store. The seed creates an administrator only if one does not already exist. Remove the bootstrap values after use.
+
+For an existing deployment, replace any administrator password created by the previous setup or seed, remove unrecognized accounts, and rotate `AUTH_SECRET`. The new code invalidates existing sessions and invalidates future sessions when the user's password changes.
 
 ## Author
 

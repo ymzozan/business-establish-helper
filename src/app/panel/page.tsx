@@ -1,3 +1,4 @@
+import { applicationScope, requirePanelPage } from "@/lib/panel-access";
 import { prisma } from "@/lib/db";
 import Link from "next/link";
 import { ArrowRight, FileText, CheckCircle2, Clock, XCircle, TrendingUp } from "lucide-react";
@@ -19,14 +20,16 @@ const statusLabels: Record<string, string> = {
 };
 
 export default async function DashboardPage() {
+  const scope = applicationScope(await requirePanelPage());
   const [total, newCount, inProgress, completed, cancelled, recentApps] =
     await Promise.all([
-      prisma.application.count(),
-      prisma.application.count({ where: { status: "NEW" } }),
-      prisma.application.count({ where: { status: "IN_PROGRESS" } }),
-      prisma.application.count({ where: { status: "COMPLETED" } }),
-      prisma.application.count({ where: { status: "CANCELLED" } }),
+      prisma.application.count({ where: scope }),
+      prisma.application.count({ where: { ...scope, status: "NEW" } }),
+      prisma.application.count({ where: { ...scope, status: "IN_PROGRESS" } }),
+      prisma.application.count({ where: { ...scope, status: "COMPLETED" } }),
+      prisma.application.count({ where: { ...scope, status: "CANCELLED" } }),
       prisma.application.findMany({
+        where: scope,
         take: 5,
         orderBy: { createdAt: "desc" },
         select: {

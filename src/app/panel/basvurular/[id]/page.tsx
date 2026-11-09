@@ -1,3 +1,4 @@
+import { applicationScope, requirePanelPage } from "@/lib/panel-access";
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,10 +27,11 @@ export default async function ApplicationDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const user = await requirePanelPage();
   const { id } = await params;
 
   const application = await prisma.application.findUnique({
-    where: { id },
+    where: { id, ...applicationScope(user) },
     include: {
       answers: { include: { question: true } },
       package: { include: { items: { include: { service: true } } } },
@@ -39,7 +41,7 @@ export default async function ApplicationDetailPage({
 
   if (!application) notFound();
 
-  const users = await prisma.user.findMany({
+  const users = user.role === "PARTNER" ? [] : await prisma.user.findMany({
     select: { id: true, name: true, role: true },
   });
 
@@ -104,13 +106,13 @@ export default async function ApplicationDetailPage({
         </Card>
 
         {/* Actions */}
-        <ApplicationActions
+        {user.role !== "PARTNER" && <ApplicationActions
           applicationId={application.id}
           currentStatus={application.status}
           currentNotes={application.notes || ""}
           currentAssignedToId={application.assignedToId || ""}
           users={users}
-        />
+        />}
       </div>
 
       {/* Answers */}

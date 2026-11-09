@@ -4,19 +4,19 @@ import bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 
 async function main() {
-  // Admin user
-  const hashedPassword = await bcrypt.hash("admin123", 12);
-  const admin = await prisma.user.upsert({
-    where: { email: "admin@kuyumcu.com" },
-    update: {},
-    create: {
-      name: "Admin",
-      email: "admin@kuyumcu.com",
-      password: hashedPassword,
-      role: "ADMIN",
-    },
-  });
-  console.log("Admin user created:", admin.email);
+  const email = process.env.BOOTSTRAP_ADMIN_EMAIL;
+  const password = process.env.BOOTSTRAP_ADMIN_PASSWORD;
+  if (email || password) {
+    if (!email || !password || password.length < 16 || Buffer.byteLength(password) > 72) {
+      throw new Error("Set BOOTSTRAP_ADMIN_EMAIL and a password of at least 16 characters and at most 72 bytes.");
+    }
+    const existingAdmin = await prisma.user.findFirst({ where: { role: "ADMIN" } });
+    if (!existingAdmin) {
+      await prisma.user.create({
+        data: { name: "Admin", email, password: await bcrypt.hash(password, 12), role: "ADMIN" },
+      });
+    }
+  }
 
   // Kuyumcu sector
   const sector = await prisma.sector.upsert({

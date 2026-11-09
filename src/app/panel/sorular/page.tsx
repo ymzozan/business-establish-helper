@@ -1,7 +1,9 @@
+import { requirePanelPage, staffRoles } from "@/lib/panel-access";
 import { prisma } from "@/lib/db";
 import { QuestionsManager } from "./QuestionsManager";
 
 export default async function QuestionsPage() {
+  await requirePanelPage(staffRoles);
   const questions = await prisma.question.findMany({
     orderBy: [{ appType: "asc" }, { order: "asc" }],
     include: { sector: { select: { name: true, slug: true } } },

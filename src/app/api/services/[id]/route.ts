@@ -1,3 +1,4 @@
+import { checkPanelApi, staffRoles } from "@/lib/panel-access";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
@@ -5,6 +6,8 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const access = await checkPanelApi(staffRoles);
+  if (access.error) return access.error;
   const { id } = await params;
   const body = await request.json();
 
@@ -29,6 +32,8 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const access = await checkPanelApi(staffRoles);
+  if (access.error) return access.error;
   const { id } = await params;
 
   await prisma.packageItem.deleteMany({ where: { serviceId: id } });
